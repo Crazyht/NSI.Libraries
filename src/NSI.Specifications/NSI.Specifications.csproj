@@ -3,4 +3,7 @@
     <Description>Specification pattern abstractions and combinators for NSI libraries.</Description>
     <PackageTags>Specification;Domain;Filtering;Queries</PackageTags>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
 </Project>

@@ -8,5 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../NSI.Specifications/NSI.Specifications.csproj" />
+  <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 </Project>

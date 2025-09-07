@@ -104,6 +104,24 @@ All code should look like it was written by a single developer. Use these standa
 
 No global brace rule is enforced by `.editorconfig`. Follow the existing local style of the file you modify. Avoid mixing styles within the same file. (Earlier guidance about forcing K&R has been removed to reflect current configuration.)
 
+#### Base Type / Interface List Spacing
+
+Style: NO space before the colon `:`, exactly one space after it, and one space after each comma.
+
+```csharp
+public sealed class SpecificationTranslationTests: IDisposable, IAsyncDisposable {
+  // ...
+}
+```
+
+Disallowed examples:
+
+```csharp
+public sealed class SpecificationTranslationTests : IDisposable { }    // space before colon (not allowed)
+public sealed class SpecificationTranslationTests:IDisposable { }      // missing space after colon
+public sealed class SpecificationTranslationTests: IDisposable,IAsyncDisposable { } // missing space after comma
+```
+
 #### Expression-Bodied Members
 
 ```csharp

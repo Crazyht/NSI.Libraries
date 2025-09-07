@@ -1,8 +1,9 @@
 using System;
 using System.Linq.Expressions;
 using NSI.Specifications.Filtering.Text;
+using NSI.Specifications.Optimization;
 
-namespace NSI.Specifications.Optimization.Npgsql;
+namespace NSI.Specifications.Npgsql.Optimization.Npgsql;
 
 /// <summary>
 /// Placeholder optimizations for Npgsql provider (PostgreSQL). Currently no-op examples to illustrate registration.

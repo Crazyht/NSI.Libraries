@@ -34,6 +34,7 @@
     <Project Path="src/NSI.Json/NSI.Json.csproj" />
     <Project Path="src/NSI.Testing/NSI.Testing.csproj" />
     <Project Path="src/NSI.Specifications/NSI.Specifications.csproj" />
+    <Project Path="src/NSI.Specifications.Npgsql/NSI.Specifications.Npgsql.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <File Path="tests/.editorconfig" />

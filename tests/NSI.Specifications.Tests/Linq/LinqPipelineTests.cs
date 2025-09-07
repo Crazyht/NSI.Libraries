@@ -22,7 +22,7 @@ public sealed class LinqPipelineTests
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         // List for CA1859 performance preference in tests.
-        public List<Book> Books { get; set; } = new();
+        public List<Book> Books { get; set; } = [];
     }
 
     private sealed class Book
@@ -60,11 +60,11 @@ public sealed class LinqPipelineTests
         var bob = new Author { Id = 2, Name = "Bob" };
         var carol = new Author { Id = 3, Name = "Carol" };
         ctx.Authors.AddRange(alice, bob, carol);
-        ctx.Books.AddRange(new[] {
+        ctx.Books.AddRange(
           new Book { Id = 10, Title = "A1", Author = alice },
           new Book { Id = 11, Title = "A2", Author = alice },
           new Book { Id = 20, Title = "B1", Author = bob }
-        });
+        );
         ctx.SaveChanges();
 
         var filter = new ContainsSpecification<Author>(a => a.Name, "a", ignoreCase: true);
@@ -91,10 +91,10 @@ public sealed class LinqPipelineTests
     [Fact]
     public void Pipeline_IEnumerable_FilterIncludeSortSelect_ProducesExpectedOrder()
     {
-        var authors = new[] {
-          new Author { Id = 1, Name = "Alice", Books = new List<Book> { new() { Id = 10, Title = "A1", AuthorId = 1 }, new() { Id = 11, Title = "A2", AuthorId = 1 } } },
-          new Author { Id = 2, Name = "Bob", Books = new List<Book> { new() { Id = 20, Title = "B1", AuthorId = 2 } } },
-          new Author { Id = 3, Name = "Carol" }
+        var authors = new List<Author> {
+          new() { Id = 1, Name = "Alice", Books = [ new() { Id = 10, Title = "A1", AuthorId = 1 }, new() { Id = 11, Title = "A2", AuthorId = 1 } ] },
+          new() { Id = 2, Name = "Bob", Books = [ new() { Id = 20, Title = "B1", AuthorId = 2 } ] },
+          new() { Id = 3, Name = "Carol" }
         };
 
         var filter = new ContainsSpecification<Author>(a => a.Name, "a", ignoreCase: true);
@@ -113,5 +113,5 @@ public sealed class LinqPipelineTests
         Assert.Equal(ExpectedOrderedNames, names);
     }
 
-    private static readonly string[] ExpectedOrderedNames = ["Alice", "Carol"]; // CA1861 compliant
+    private static readonly string[] ExpectedOrderedNames = ["Alice", "Carol"]; // remains simple array literal
 }

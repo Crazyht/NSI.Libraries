@@ -65,10 +65,10 @@ jobs:
       matrix:
         test-group:
           - name: "Unit Tests"
-            projects: "Tests/**/*.csproj"
+            projects: "tests/**/*.csproj"
             filter: "Category!=Integration&Category!=Performance"
           - name: "Integration Tests"
-            projects: "Tests/**/*.csproj"
+            projects: "tests/**/*.csproj"
             filter: "Category=Integration"
 
     steps:
@@ -199,7 +199,7 @@ jobs:
 
     - name: 🏗️ Build packages
       run: |
-        dotnet pack Src/NSI.Core/NSI.Core.csproj \
+  dotnet pack src/NSI.Core/NSI.Core.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -207,7 +207,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack Src/NSI.Domains/NSI.Domains.csproj \
+  dotnet pack src/NSI.Domains/NSI.Domains.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -215,7 +215,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack Src/NSI.AspNetCore/NSI.AspNetCore.csproj \
+  dotnet pack src/NSI.AspNetCore/NSI.AspNetCore.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -223,7 +223,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack Src/NSI.EntityFramework/NSI.EntityFramework.csproj \
+  dotnet pack src/NSI.EntityFramework/NSI.EntityFramework.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -231,7 +231,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack Src/NSI.Json/NSI.Json.csproj \
+  dotnet pack src/NSI.Json/NSI.Json.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -239,7 +239,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack Src/NSI.Testing/NSI.Testing.csproj \
+  dotnet pack src/NSI.Testing/NSI.Testing.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -275,11 +275,11 @@ jobs:
       run: dotnet restore
 
     - name: 🏗️ Build benchmarks
-      run: dotnet build Benchmarks/NSI.Testing.Benchmarks/NSI.Testing.Benchmarks.csproj --configuration Release
+  run: dotnet build benchmarks/NSI.Testing.Benchmarks/NSI.Testing.Benchmarks.csproj --configuration Release
 
     - name: ⚡ Run benchmarks
       run: |
-        cd Benchmarks/NSI.Testing.Benchmarks
+  cd benchmarks/NSI.Testing.Benchmarks
         dotnet run --configuration Release --no-build > benchmark-results.txt 2>&1
 
     - name: 📤 Upload benchmark results

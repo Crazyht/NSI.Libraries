@@ -191,19 +191,40 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: ⚙️ Environment prep
+        run: |
+          echo "DOTNET VERSION:" $(dotnet --version)
+          echo "Restoring tools (if any)"
+
       - name: 📦 Restore dependencies
         run: dotnet restore
 
       - name: 🔍 Security audit
         run: dotnet list package --vulnerable --include-transitive || true
 
-      - name: 🛡️ CodeQL Analysis
+      - name: 🛡️ CodeQL Init
         uses: github/codeql-action/init@v3
         with:
           languages: csharp
+          build-mode: manual
 
-      - name: 🏗️ Build for CodeQL
-        run: dotnet build --configuration Release
+      - name: 🏗️ Manual build (src projects)
+        run: |
+          set -euo pipefail
+          echo "Enumerating src projects for manual build..."
+          mapfile -t projects < <(find src -type f -name '*.csproj' -print | sort)
+          if [ ${#projects[@]} -eq 0 ]; then
+            echo "No projects found under src/" >&2
+            exit 1
+          fi
+            
+          for proj in "${projects[@]}"; do
+            echo "Building $proj"
+            dotnet build "$proj" --configuration Release --no-restore --nologo || {
+              echo "Build failed for $proj" >&2
+              exit 1
+            }
+          done
 
       - name: 🔎 Post-build diagnostics
         if: always()

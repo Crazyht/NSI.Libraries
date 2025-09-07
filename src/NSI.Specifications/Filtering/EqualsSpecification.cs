@@ -34,6 +34,9 @@ public sealed class EqualsSpecification<T, TKey>(Expression<Func<T, TKey>> selec
 internal static class GuardBuilder {
   public static Expression Build(Expression pathBody, Expression predicate, ParameterExpression parameter) {
     var chain = MemberChainExtractor.Extract(pathBody);
+    if (chain.Count > 1) {
+      chain.Reverse(); // ensure root -> leaf order for guard building
+    }
     if (chain.Count == 0) {
       return predicate;
     }

@@ -19,6 +19,9 @@ public sealed class IsNullSpecification<T, TKey>(Expression<Func<T, TKey>> selec
   public override Expression<Func<T, bool>> ToExpression() {
     var param = _Selector.Parameters[0];
     var chain = MemberChainExtractor.Extract(_Selector.Body);
+    if (chain.Count > 1) {
+      chain.Reverse(); // ensure root -> leaf order for member access
+    }
     if (chain.Count == 0) {
       return Expression.Lambda<Func<T, bool>>(Expression.Equal(_Selector.Body, Expression.Constant(null, typeof(TKey))), param);
     }

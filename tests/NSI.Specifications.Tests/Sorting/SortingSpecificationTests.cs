@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using NSI.Specifications.Sorting;
 using Xunit;
@@ -21,22 +20,24 @@ public class SortingSpecificationTests
     [Fact]
     public void SingleClause_ShouldSortAscending()
     {
-        List<Item> data = [new() { A = 2 }, new() { A = 1 }];
+        Item[] data = [new() { A = 2 }, new() { A = 1 }];
         var spec = Sort.Create<Item, int>(x => x.A);
         var result = data.AsQueryable().OrderBy(spec).ToList();
-        Assert.Equal(ExpectedSingle, result.Select(r => r.A).ToArray());
+        int[] actual = [.. result.Select(r => r.A)];
+        Assert.Equal(ExpectedSingle, actual);
     }
 
     [Fact]
     public void MultiClause_ShouldApplyThenOrdering()
     {
-        List<Item> data = [
+        Item[] data = [
             new() { A = 1, B = 2 },
             new() { A = 1, B = 1 },
             new() { A = 0, B = 5 }
         ];
         var spec = Sort.Create<Item, int>(x => x.A).Then(x => x.B, SortDirection.Desc);
         var result = data.AsQueryable().OrderBy(spec).ToList();
-        Assert.Equal(ExpectedTuples, result.Select(r => (r.A, r.B)).ToArray());
+        (int A, int B)[] actual = [.. result.Select(r => (r.A, r.B))];
+        Assert.Equal(ExpectedTuples, actual);
     }
 }

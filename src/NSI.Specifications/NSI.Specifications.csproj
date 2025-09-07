@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Specification pattern abstractions and combinators for NSI libraries.</Description>
+    <PackageTags>Specification;Domain;Filtering;Queries</PackageTags>
+  </PropertyGroup>
+</Project>

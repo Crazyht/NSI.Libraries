@@ -6,8 +6,24 @@ using NSI.Domains;
 
 namespace NSI.EntityFramework;
 
+/// <summary>
+/// Provides Entity Framework Core model builder extensions for applying consistent naming conventions.
+/// </summary>
+/// <remarks>
+/// Current features:
+/// <list type="bullet">
+///   <item><description>Snake_case transformation for tables, columns, keys, indexes and foreign keys.</description></item>
+///   <item><description>Skips strongly typed ID types and respects TPT strategy markers.</description></item>
+/// </list>
+/// </remarks>
 public static partial class ModelBuilderExtension {
 
+  /// <summary>
+  /// Applies snake_case naming convention to all entity set artifacts (tables, columns, keys, FKs, indexes).
+  /// </summary>
+  /// <param name="modelBuilder">The model builder instance.</param>
+  /// <returns>The same <see cref="ModelBuilder"/> for chaining.</returns>
+  /// <exception cref="ArgumentNullException">Thrown when <paramref name="modelBuilder"/> is null.</exception>
   public static ModelBuilder ApplySnakeCaseConvension(this ModelBuilder modelBuilder) {
     ArgumentNullException.ThrowIfNull(modelBuilder);
 

@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -9,27 +8,40 @@ using NSI.EntityFramework.Converters;
 
 namespace NSI.EntityFramework;
 
-[SuppressMessage("", "S1066", Justification = "Simplification of conditional expressions is not applicable due to readability concerns.")]
-[SuppressMessage("", "S134", Justification = "Excessive nesting is necessary for handling complex tenant and audit logic.")]
-[SuppressMessage("", "S1541", Justification = "Method complexity is justified by the need to handle multiple entity types and states.")]
-[SuppressMessage("", "S3776", Justification = "Cognitive complexity is acceptable given the multi-tenant and audit requirements.")]
-[SuppressMessage("", "S4462", Justification = "Static fields in generic types are used for caching reflection data to improve performance.")]
-
 /// <summary>
-/// Application database context that provides access to the database and handles
-/// auditing capabilities for tracking entity creation and modification.
+/// Generic application <see cref="DbContext"/> implementing multi-tenancy (tenant filters &amp; enforcement)
+/// and audit population for creation/modification fields using strongly typed identifiers.
 /// </summary>
-/// <param name="options">The database context options used to configure the context.</param>
-/// <param name="userAccessor">Service for accessing the current user information.</param>
-/// <param name="timeProvider">Service for providing consistent time values.</param>
-/// <param name="tenantService">Service for determining the current tenant context.</param>
-public class NsiDbContext<TUser>(
-  DbContextOptions options,
-  IUserAccessor userAccessor,
-  TimeProvider timeProvider,
-  ITenantService tenantService): DbContext(options) {
+/// <typeparam name="TUser">User entity type used for foreign key relationships in audit fields.</typeparam>
+public class NsiDbContext<TUser>: DbContext {
 
-  private readonly TenantId? _TenantId = tenantService.GetCurrentTenantId();
+  /// <summary>
+  /// Initializes a new instance of the <see cref="NsiDbContext{TUser}"/> class.
+  /// </summary>
+  /// <param name="options">EF Core options.</param>
+  /// <param name="userAccessor">Current user accessor.</param>
+  /// <param name="timeProvider">Time provider abstraction.</param>
+  /// <param name="tenantService">Tenant resolution service.</param>
+  public NsiDbContext(
+    DbContextOptions options,
+    IUserAccessor userAccessor,
+    TimeProvider timeProvider,
+    ITenantService tenantService) : base(options) {
+    ArgumentNullException.ThrowIfNull(options);
+    ArgumentNullException.ThrowIfNull(userAccessor);
+    ArgumentNullException.ThrowIfNull(timeProvider);
+    ArgumentNullException.ThrowIfNull(tenantService);
+    _UserAccessor = userAccessor;
+    _TimeProvider = timeProvider;
+    _TenantId = tenantService.GetCurrentTenantId();
+  }
+
+  private readonly IUserAccessor _UserAccessor;
+  private readonly TimeProvider _TimeProvider;
+  private readonly TenantId? _TenantId;
+  /// <summary>
+  /// Gets the tenant identifier associated with this context instance (null for over-tenant scope).
+  /// </summary>
   public TenantId? GetCurrentTenantId() => _TenantId;
 
   /// <summary>
@@ -150,7 +162,9 @@ public class NsiDbContext<TUser>(
   /// <param name="acceptAllChangesOnSuccess">Indicates whether <see cref="ChangeTracker.AcceptAllChanges"/> is called after the changes have been sent successfully to the database.</param>
   /// <returns>The number of state entries written to the database.</returns>
   public override int SaveChanges(bool acceptAllChangesOnSuccess) {
+#pragma warning disable S4462 // Sonar: prefer await over GetResult
     ApplyContextualChangesAsync().GetAwaiter().GetResult();
+#pragma warning restore S4462
     return base.SaveChanges(acceptAllChangesOnSuccess);
   }
 
@@ -181,6 +195,8 @@ public class NsiDbContext<TUser>(
     await ApplyAuditInformationAsync();
   }
 
+  // No synchronous variant: sync SaveChanges bridges to async with explicit suppression pragmas.
+
   /// <summary>
   /// Enforces tenant isolation for entities implementing <see cref="IHaveTenantId"/> 
   /// and validates tenant context for <see cref="IHaveNullableTenantId"/> entities.
@@ -205,34 +221,48 @@ public class NsiDbContext<TUser>(
   /// </para>
   /// </remarks>
   private async Task ApplyTenantIdEnforcementAsync() {
-
-    // Single enumeration through all entries, handling different interface types
     foreach (var entry in ChangeTracker.Entries()) {
-      var entityTypeName = entry.Entity.GetType().Name;
+      await ProcessTenantEnforcementEntryAsync(entry);
+    }
+  }
 
-      // Handle IHaveTenantId entities (including those with IHaveInheritedTenantId)
-      if (entry.Entity is IHaveTenantId tenantEntity) {
+  private async Task ProcessTenantEnforcementEntryAsync(EntityEntry entry) {
+    var entityTypeName = entry.Entity.GetType().Name;
 
-        if (entry.State == EntityState.Added) {
-          await HandleTenantIdForAddedEntityAsync(entry, entityTypeName);
-
-        } else if (entry.State == EntityState.Modified || entry.State == EntityState.Deleted) {
-          await HandleTenantIdForModifiedOrDeletedEntityAsync(tenantEntity, entityTypeName, entry.State);
-        }
-      }
-      // Handle IHaveNullableTenantId entities (that are NOT IHaveTenantId)
-      else if (entry.Entity is IHaveNullableTenantId nullableTenantEntity) {
-        if (entry.State == EntityState.Added || entry.State == EntityState.Modified || entry.State == EntityState.Deleted) {
-          if (nullableTenantEntity.TenantId == null || nullableTenantEntity.TenantId.Equals(_TenantId)) {
-            await HandleNullableTenantIdValidationAsync(nullableTenantEntity, entityTypeName, entry.State);
-          } else {
-            throw new UnauthorizedAccessException($"Entity {entityTypeName} must belong to the current tenant context.");
-          }
-        }
-      }
+    // IHaveTenantId path
+    if (entry.Entity is IHaveTenantId tenantEntity) {
+      await ProcessHaveTenantIdEntryAsync(entry, tenantEntity, entityTypeName);
+      return;
     }
 
-    await Task.CompletedTask;
+    // IHaveNullableTenantId path (only consider changed states)
+    if (entry.Entity is IHaveNullableTenantId nullableTenantEntity) {
+      await ProcessNullableTenantIdEntryAsync(entry, nullableTenantEntity, entityTypeName);
+    }
+  }
+
+  private async Task ProcessHaveTenantIdEntryAsync(EntityEntry entry, IHaveTenantId tenantEntity, string entityTypeName) {
+    if (entry.State == EntityState.Added) {
+      await HandleTenantIdForAddedEntityAsync(entry, entityTypeName);
+      return;
+    }
+    if (entry.State is EntityState.Modified or EntityState.Deleted) {
+      await HandleTenantIdForModifiedOrDeletedEntityAsync(tenantEntity, entityTypeName, entry.State);
+    }
+  }
+
+  private async Task ProcessNullableTenantIdEntryAsync(EntityEntry entry, IHaveNullableTenantId nullableTenantEntity, string entityTypeName) {
+    if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) {
+      return;
+    }
+    if (_TenantId == null) {
+      return; // over-tenant
+    }
+    if (nullableTenantEntity.TenantId == null || nullableTenantEntity.TenantId.Equals(_TenantId)) {
+      await HandleNullableTenantIdValidationAsync(nullableTenantEntity, entityTypeName, entry.State);
+      return;
+    }
+    throw new UnauthorizedAccessException($"Entity {entityTypeName} must belong to the current tenant context.");
   }
 
   /// <summary>
@@ -326,8 +356,8 @@ public class NsiDbContext<TUser>(
   /// for entities that support auditing capabilities.
   /// </remarks>
   private async Task ApplyAuditInformationAsync() {
-    var now = timeProvider.GetUtcNow().UtcDateTime;
-    var userInfo = await userAccessor.GetCurrentUserInfoAsync();
+    var now = _TimeProvider.GetUtcNow().UtcDateTime;
+    var userInfo = await _UserAccessor.GetCurrentUserInfoAsync();
 
     foreach (var entry in ChangeTracker.Entries<IAuditableEntity>()) {
       if (entry.State == EntityState.Added) {
@@ -335,14 +365,15 @@ public class NsiDbContext<TUser>(
         entry.Entity.CreatedBy = userInfo.Id;
         entry.Entity.ModifiedOn = null;
         entry.Entity.ModifiedBy = null;
-      } else if (entry.State == EntityState.Modified) {
+        continue;
+      }
+      if (entry.State == EntityState.Modified) {
         entry.Entity.ModifiedOn = now;
         entry.Entity.ModifiedBy = userInfo.Id;
-      } else {
-        // Nothing to do for Deleted or Unchanged states
       }
     }
   }
+
 }
 
 #endregion

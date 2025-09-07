@@ -314,7 +314,7 @@ public class NsiDbContext<TUser>: DbContext {
 
     if (!currentTenantId.Equals(_TenantId)) {
       throw new UnauthorizedAccessException(
-        $"Entity {entityTypeName} belongs to a different tenant and cannot be {entityState.ToString()} in current context.");
+        $"Entity {entityTypeName} belongs to a different tenant and cannot be {entityState} in current context.");
     }
 
     await Task.CompletedTask;
@@ -340,7 +340,7 @@ public class NsiDbContext<TUser>: DbContext {
     // If TenantId is specified, validate it matches current context
     if (currentTenantId != null && !currentTenantId.Equals(_TenantId)) {
       throw new UnauthorizedAccessException(
-        $"Entity {entityTypeName} belongs to a different tenant and cannot be {entityState.ToString()} in current context.");
+        $"Entity {entityTypeName} belongs to a different tenant and cannot be {entityState} in current context.");
     }
 
     await Task.CompletedTask;

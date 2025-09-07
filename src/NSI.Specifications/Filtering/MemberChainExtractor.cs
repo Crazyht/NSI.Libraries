@@ -9,7 +9,7 @@ namespace NSI.Specifications.Filtering;
 /// </summary>
 internal static class MemberChainExtractor {
   public static System.Collections.Generic.List<System.Reflection.MemberInfo> Extract(Expression body) {
-  var result = new System.Collections.Generic.List<System.Reflection.MemberInfo>();
+    var result = new System.Collections.Generic.List<System.Reflection.MemberInfo>();
     var current = Strip(body);
     while (current is MemberExpression m) {
       result.Add(m.Member);

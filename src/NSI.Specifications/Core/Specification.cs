@@ -8,7 +8,7 @@ namespace NSI.Specifications.Core;
 /// Base class implementing common combinators for specifications.
 /// </summary>
 /// <typeparam name="T">Entity type.</typeparam>
-public abstract class Specification<T> : ISpecification<T> {
+public abstract class Specification<T>: ISpecification<T> {
   /// <inheritdoc />
   public abstract Expression<Func<T, bool>> ToExpression();
 

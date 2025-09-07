@@ -11,7 +11,7 @@ namespace NSI.Specifications.Filtering;
 /// </summary>
 /// <typeparam name="T">Entity type.</typeparam>
 /// <typeparam name="TKey">Value type.</typeparam>
-public sealed class InSpecification<T, TKey>(Expression<Func<T, TKey>> selector, IEnumerable<TKey> values) : Specification<T>, IFilterSpecification<T> {
+public sealed class InSpecification<T, TKey>(Expression<Func<T, TKey>> selector, IEnumerable<TKey> values): Specification<T>, IFilterSpecification<T> {
   private readonly Expression<Func<T, TKey>> _Selector = selector ?? throw new ArgumentNullException(nameof(selector));
   private readonly TKey[] _Values = values?.ToArray() ?? throw new ArgumentNullException(nameof(values));
   /// <summary>
@@ -25,7 +25,7 @@ public sealed class InSpecification<T, TKey>(Expression<Func<T, TKey>> selector,
     var valueArray = Expression.Constant(_Values);
     var param = _Selector.Parameters[0];
     var body = _Selector.Body;
-    var containsCall = Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), [ typeof(TKey) ], valueArray, body);
+    var containsCall = Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), [typeof(TKey)], valueArray, body);
     // Guard multi-level path
     if (body is MemberExpression me && me.Expression is not ParameterExpression) {
       var guarded = GuardBuilder.Build(_Selector.Body, containsCall, param);

@@ -22,12 +22,12 @@ public sealed class CoreSpecificationTests {
     new("Charlie", true)
   ];
 
-  private static readonly string[] _ExpectedOrNames = ["Beta", "Charlie"]; 
+  private static readonly string[] _ExpectedOrNames = ["Beta", "Charlie"];
 
-  private sealed class ActiveItemSpec : Specification<TestItem> {
+  private sealed class ActiveItemSpec: Specification<TestItem> {
     public override System.Linq.Expressions.Expression<System.Func<TestItem, bool>> ToExpression() => x => x.Active;
   }
-  private sealed class NameStartsWithSpec(string prefix) : Specification<TestItem> {
+  private sealed class NameStartsWithSpec(string prefix): Specification<TestItem> {
     public override System.Linq.Expressions.Expression<System.Func<TestItem, bool>> ToExpression() => x => x.Name.StartsWith(prefix);
   }
 
@@ -38,24 +38,24 @@ public sealed class CoreSpecificationTests {
 
   [Fact]
   public void And_ComposesCorrectly() {
-  var spec = new ActiveItemSpec().And(new NameStartsWithSpec("A"));
-  var filtered = _Sample.AsQueryable().Where(spec.ToExpression()).ToList();
+    var spec = new ActiveItemSpec().And(new NameStartsWithSpec("A"));
+    var filtered = _Sample.AsQueryable().Where(spec.ToExpression()).ToList();
     Assert.Single(filtered);
     Assert.Equal("Alpha", filtered[0].Name);
   }
 
   [Fact]
   public void Or_ComposesCorrectly() {
-  var spec = new ActiveItemSpec().Or(new NameStartsWithSpec("B"));
-  var filtered = _OrSample.AsQueryable().Where(spec.ToExpression()).OrderBy(x => x.Name).ToList();
-  var actual = filtered.Select(x => x.Name).ToArray();
-  Assert.Equal(_ExpectedOrNames, actual);
+    var spec = new ActiveItemSpec().Or(new NameStartsWithSpec("B"));
+    var filtered = _OrSample.AsQueryable().Where(spec.ToExpression()).OrderBy(x => x.Name).ToList();
+    var actual = filtered.Select(x => x.Name).ToArray();
+    Assert.Equal(_ExpectedOrNames, actual);
   }
 
   [Fact]
   public void Not_NegatesCorrectly() {
-  var spec = new ActiveItemSpec().Not();
-  var filtered = _NotSample.AsQueryable().Where(spec.ToExpression()).ToList();
+    var spec = new ActiveItemSpec().Not();
+    var filtered = _NotSample.AsQueryable().Where(spec.ToExpression()).ToList();
     Assert.Single(filtered);
     Assert.Equal("B", filtered[0].Name);
   }

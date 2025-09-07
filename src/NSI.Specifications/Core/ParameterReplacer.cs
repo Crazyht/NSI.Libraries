@@ -5,7 +5,7 @@ namespace NSI.Specifications.Core;
 /// <summary>
 /// Replaces a target parameter inside an expression tree.
 /// </summary>
-internal sealed class ParameterReplacer : ExpressionVisitor {
+internal sealed class ParameterReplacer: ExpressionVisitor {
   private readonly ParameterExpression _Source;
   private readonly ParameterExpression _Target;
 

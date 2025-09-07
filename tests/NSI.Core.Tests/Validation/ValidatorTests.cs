@@ -111,7 +111,7 @@ public sealed class ValidatorTests {
     Assert.Equal(2, result.Errors.Count);
   }
 
-  [Theory(Skip = "Skipped in CI environment")]
+  [Theory]
   [InlineData(1)]
   [InlineData(5)]
   [InlineData(10)]

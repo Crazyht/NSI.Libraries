@@ -10,7 +10,7 @@ namespace NSI.Specifications.Filtering;
 /// </summary>
 /// <typeparam name="T">Entity type.</typeparam>
 /// <typeparam name="TKey">Member type.</typeparam>
-public sealed class IsNullSpecification<T, TKey>(Expression<Func<T, TKey>> selector) : Specification<T>, IFilterSpecification<T> where TKey : class {
+public sealed class IsNullSpecification<T, TKey>(Expression<Func<T, TKey>> selector): Specification<T>, IFilterSpecification<T> where TKey : class {
   private readonly Expression<Func<T, TKey>> _Selector = selector ?? throw new ArgumentNullException(nameof(selector));
   /// <summary>
   /// Builds an expression returning true when any segment of the path or the terminal value is null.

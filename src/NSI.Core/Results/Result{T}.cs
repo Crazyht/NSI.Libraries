@@ -267,4 +267,8 @@ public readonly struct Result<T>: IEquatable<Result<T>> {
   /// </summary>
   /// <param name="error">The error.</param>
   public static implicit operator Result<T>(ResultError error) => Result.Failure<T>(error);
+
+  public Result<T> ToResult() {
+    throw new NotImplementedException();
+  }
 }

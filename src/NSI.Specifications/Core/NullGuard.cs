@@ -19,15 +19,15 @@ public static class NullGuard {
   public static Expression<Func<T, bool>> Safe<T, TMember>(Expression<Func<T, TMember>> path, Expression<Func<TMember, bool>> predicate) {
     ArgumentNullException.ThrowIfNull(path);
     ArgumentNullException.ThrowIfNull(predicate);
-  var parameter = path.Parameters[0];
-  var memberChain = ExtractChain(path.Body);
-  if (memberChain.Count == 0) {
+    var parameter = path.Parameters[0];
+    var memberChain = ExtractChain(path.Body);
+    if (memberChain.Count == 0) {
       var direct = ParameterReplacer.Replace(predicate.Body, predicate.Parameters[0], parameter);
       return Expression.Lambda<Func<T, bool>>(direct, parameter);
     }
 
-  var current = (Expression)parameter;
-  var nullChecks = new List<Expression>();
+    var current = (Expression)parameter;
+    var nullChecks = new List<Expression>();
     foreach (var member in memberChain) {
       current = Expression.MakeMemberAccess(current, member);
       var memberType = member.GetMemberType();
@@ -36,9 +36,9 @@ public static class NullGuard {
       }
     }
 
-  var leafAccess = current;
-  var predicateBody = new LeafRebinder(predicate.Parameters[0], leafAccess).Visit(predicate.Body)!;
-  var body = predicateBody;
+    var leafAccess = current;
+    var predicateBody = new LeafRebinder(predicate.Parameters[0], leafAccess).Visit(predicate.Body)!;
+    var body = predicateBody;
     for (var i = nullChecks.Count - 1; i >= 0; i--) {
       body = Expression.AndAlso(nullChecks[i], body);
     }
@@ -62,7 +62,7 @@ public static class NullGuard {
     return expr;
   }
 
-  private sealed class LeafRebinder(ParameterExpression source, Expression target) : ExpressionVisitor {
+  private sealed class LeafRebinder(ParameterExpression source, Expression target): ExpressionVisitor {
     private readonly ParameterExpression _Source = source;
     private readonly Expression _Target = target;
     protected override Expression VisitParameter(ParameterExpression node) => node == _Source ? _Target : base.VisitParameter(node);

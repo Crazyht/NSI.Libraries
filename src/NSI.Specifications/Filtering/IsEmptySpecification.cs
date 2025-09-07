@@ -8,7 +8,7 @@ namespace NSI.Specifications.Filtering;
 /// Matches when the selected string or collection is empty (null is NOT treated as empty).
 /// </summary>
 /// <typeparam name="T">Entity type.</typeparam>
-public sealed class IsEmptySpecification<T>(Expression<Func<T, object?>> selector) : Specification<T>, IFilterSpecification<T> {
+public sealed class IsEmptySpecification<T>(Expression<Func<T, object?>> selector): Specification<T>, IFilterSpecification<T> {
   private readonly Expression<Func<T, object?>> _Selector = selector ?? throw new ArgumentNullException(nameof(selector));
   /// <summary>
   /// Builds an expression that matches empty strings or collections (null excluded).

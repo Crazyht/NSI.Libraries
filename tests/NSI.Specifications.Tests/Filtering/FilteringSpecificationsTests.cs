@@ -9,7 +9,7 @@ namespace NSI.Specifications.Tests.Filtering;
 /// Tests for foundational filtering specifications.
 /// </summary>
 public sealed class FilteringSpecificationsTests {
-  private static readonly string[] _ExpectedNames = [ "A", "C" ];
+  private static readonly string[] _ExpectedNames = ["A", "C"];
   private sealed class Node {
     public Node? Child { get; init; }
     public string? Name { get; init; }
@@ -35,16 +35,16 @@ public sealed class FilteringSpecificationsTests {
 
   [Fact]
   public void InSpecification_FiltersCorrectly() {
-  var spec = new InSpecification<Node, string?>(n => n.Name, _ExpectedNames);
-  var data = new[] { new Node { Name = "A" }, new Node { Name = "B" }, new Node { Name = "C" } };
-  var result = data.AsQueryable().Where(spec.ToExpression()).OrderBy(n => n.Name).ToList();
-  var names = result.Select(n => n.Name).OfType<string>().ToArray();
-  Assert.Equal(_ExpectedNames, names);
+    var spec = new InSpecification<Node, string?>(n => n.Name, _ExpectedNames);
+    var data = new[] { new Node { Name = "A" }, new Node { Name = "B" }, new Node { Name = "C" } };
+    var result = data.AsQueryable().Where(spec.ToExpression()).OrderBy(n => n.Name).ToList();
+    var names = result.Select(n => n.Name).OfType<string>().ToArray();
+    Assert.Equal(_ExpectedNames, names);
   }
 
   [Fact]
   public void InSpecification_EmptySet_AlwaysFalse() {
-  var spec = new InSpecification<Node, string?>(n => n.Name, []);
+    var spec = new InSpecification<Node, string?>(n => n.Name, []);
     var data = new[] { new Node { Name = "A" } };
     var result = data.AsQueryable().Where(spec.ToExpression()).ToList();
     Assert.Empty(result);
@@ -52,7 +52,7 @@ public sealed class FilteringSpecificationsTests {
 
   [Fact]
   public void IsNullSpecification_IntermediateNull_ReturnsTrue() {
-  var spec = new IsNullSpecification<Node, string>(n => n.Child!.Name!);
+    var spec = new IsNullSpecification<Node, string>(n => n.Child!.Name!);
     var data = new[] { new Node { Child = null } };
     var result = data.AsQueryable().Where(spec.ToExpression()).ToList();
     Assert.Single(result);

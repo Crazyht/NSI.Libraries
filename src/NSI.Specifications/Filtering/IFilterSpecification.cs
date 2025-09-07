@@ -6,4 +6,4 @@ namespace NSI.Specifications.Filtering;
 /// Marker interface for filter specifications.
 /// </summary>
 /// <typeparam name="T">Entity type.</typeparam>
-public interface IFilterSpecification<T> : ISpecification<T> { }
+public interface IFilterSpecification<T>: ISpecification<T> { }

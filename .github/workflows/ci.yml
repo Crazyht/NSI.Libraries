@@ -196,7 +196,7 @@ jobs:
           echo "DOTNET VERSION:" $(dotnet --version)
           echo "Restoring tools (if any)"
 
-      - name: � Detect Code Scanning availability
+      - name: 🔎 Detect Code Scanning availability
         id: codescan
         run: |
           set -e
@@ -212,7 +212,7 @@ jobs:
             echo "Code scanning enabled." >&2
           fi
 
-      - name: �📦 Restore dependencies
+      - name:  Restore dependencies
         run: dotnet restore
 
       - name: 🔍 Security audit
@@ -223,26 +223,9 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: csharp
-          build-mode: manual
+          build-mode: autobuild  # Using GitHub CodeQL autobuild; relies on solution / project discovery
 
-      - name: 🏗️ Manual build (src projects)
-        if: steps.codescan.outputs.enabled == 'true'
-        run: |
-          set -euo pipefail
-          echo "Enumerating src projects for manual build..."
-          mapfile -t projects < <(find src -type f -name '*.csproj' -print | sort)
-          if [ ${#projects[@]} -eq 0 ]; then
-            echo "No projects found under src/" >&2
-            exit 1
-          fi
-            
-          for proj in "${projects[@]}"; do
-            echo "Building $proj"
-            dotnet build "$proj" --configuration Release --no-restore --nologo || {
-              echo "Build failed for $proj" >&2
-              exit 1
-            }
-          done
+    # NOTE: Manual aggregate build removed per request (autobuild expected to handle .slnx context).
 
       - name: 🔎 Post-build diagnostics
         if: always()

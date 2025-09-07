@@ -9,7 +9,7 @@ namespace NSI.Specifications.Tests.Filtering;
 /// Tests for foundational filtering specifications.
 /// </summary>
 public sealed class FilteringSpecificationsTests {
-  private static readonly string[] _ExpectedNames = ["A", "C"];
+  private static readonly string[] ExpectedNames = ["A", "C"];
   private sealed class Node {
     public Node? Child { get; init; }
     public string? Name { get; init; }
@@ -35,11 +35,11 @@ public sealed class FilteringSpecificationsTests {
 
   [Fact]
   public void InSpecification_FiltersCorrectly() {
-    var spec = new InSpecification<Node, string?>(n => n.Name, _ExpectedNames);
+    var spec = new InSpecification<Node, string?>(n => n.Name, ExpectedNames);
     var data = new[] { new Node { Name = "A" }, new Node { Name = "B" }, new Node { Name = "C" } };
     var result = data.AsQueryable().Where(spec.ToExpression()).OrderBy(n => n.Name).ToList();
     var names = result.Select(n => n.Name).OfType<string>().ToArray();
-    Assert.Equal(_ExpectedNames, names);
+    Assert.Equal(ExpectedNames, names);
   }
 
   [Fact]

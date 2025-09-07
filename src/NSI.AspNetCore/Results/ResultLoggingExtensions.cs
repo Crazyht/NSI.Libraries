@@ -1,69 +1,88 @@
 using Microsoft.Extensions.Logging;
 using NSI.Core.Results;
 
-namespace NSI.AspNetCore.Results {
+namespace NSI.AspNetCore.Results;
+/// <summary>
+/// Provides extension methods for logging Result operations.
+/// </summary>
+/// <remarks>
+/// <para>
+/// These extensions integrate Result pattern with structured logging using
+/// LoggerMessage source generators for optimal performance.
+/// </para>
+/// </remarks>
+public static partial class ResultLoggingExtensions {
   /// <summary>
-  /// Provides extension methods for logging Result operations.
+  /// Logs the result of an operation, with different log levels based on success/failure.
   /// </summary>
-  /// <remarks>
-  /// <para>
-  /// These extensions integrate Result pattern with structured logging using
-  /// LoggerMessage source generators for optimal performance.
-  /// </para>
-  /// </remarks>
-  public static partial class ResultLoggingExtensions {
-    /// <summary>
-    /// Logs the result of an operation, with different log levels based on success/failure.
-    /// </summary>
-    /// <typeparam name="T">The type of the result value.</typeparam>
-    /// <param name="result">The result to log.</param>
-    /// <param name="logger">The logger instance.</param>
-    /// <param name="operationName">The name of the operation for logging context.</param>
-    /// <returns>The same result instance for method chaining.</returns>
-    /// <example>
-    /// <code>
-    /// var result = await userService.GetUserByIdAsync(userId);
-    /// return result
-    ///   .LogResult(_logger, "GetUserById")
-    ///   .ToHttpResponse();
-    /// </code>
-    /// </example>
-    public static Result<T> LogResult<T>(this Result<T> result, ILogger logger, string operationName) {
-      if (result.IsSuccess) {
-        logger.LogOperationSucceeded(operationName, typeof(T).Name);
+  /// <typeparam name="T">The type of the result value.</typeparam>
+  /// <param name="result">The result to log.</param>
+  /// <param name="logger">The logger instance.</param>
+  /// <param name="operationName">The name of the operation for logging context.</param>
+  /// <returns>The same result instance for method chaining.</returns>
+  /// <example>
+  /// <code>
+  /// var result = await userService.GetUserByIdAsync(userId);
+  /// return result
+  ///   .LogResult(_logger, "GetUserById")
+  ///   .ToHttpResponse();
+  /// </code>
+  /// </example>
+  public static Result<T> LogResult<T>(this Result<T> result, ILogger logger, string operationName) {
+    if (result.IsSuccess) {
+      logger.LogOperationSucceeded(operationName, typeof(T).Name);
+    } else {
+      if (result.Error.HasValidationErrors) {
+        logger.LogValidationFailed(operationName, result.Error.ValidationErrors!.Count);
       } else {
-        if (result.Error.HasValidationErrors) {
-          logger.LogValidationFailed(operationName, result.Error.ValidationErrors!.Count);
-        } else {
-          logger.LogOperationFailed(operationName, result.Error.Code, result.Error.Message, result.Error.Exception);
-        }
+        logger.LogOperationFailed(operationName, result.Error.Code, result.Error.Message, result.Error.Exception);
       }
-
-      return result;
     }
 
-    [LoggerMessage(
-      EventId = 2001,
-      EventName = "OperationSucceeded",
-      Level = LogLevel.Information,
-      Message = "Operation {OperationName} succeeded, returning {ResultType}"
-    )]
-    public static partial void LogOperationSucceeded(this ILogger logger, string operationName, string resultType);
-
-    [LoggerMessage(
-      EventId = 2002,
-      EventName = "OperationFailed",
-      Level = LogLevel.Warning,
-      Message = "Operation {OperationName} failed with code {ErrorCode}: {ErrorMessage}"
-    )]
-    public static partial void LogOperationFailed(this ILogger logger, string operationName, string errorCode, string errorMessage, Exception? exception);
-
-    [LoggerMessage(
-      EventId = 2003,
-      EventName = "ValidationFailed",
-      Level = LogLevel.Warning,
-      Message = "Validation failed for operation {OperationName} with {ValidationErrorCount} errors"
-    )]
-    public static partial void LogValidationFailed(this ILogger logger, string operationName, int validationErrorCount);
+    return result;
   }
+
+  /// <summary>
+  /// Logs a successful operation returning a result type.
+  /// </summary>
+  /// <param name="logger">The logger instance.</param>
+  /// <param name="operationName">Logical name of the operation.</param>
+  /// <param name="resultType">Returned result type name.</param>
+  [LoggerMessage(
+    EventId = 2001,
+    EventName = "OperationSucceeded",
+    Level = LogLevel.Information,
+    Message = "Operation {OperationName} succeeded, returning {ResultType}"
+  )]
+  public static partial void LogOperationSucceeded(this ILogger logger, string operationName, string resultType);
+
+  /// <summary>
+  /// Logs a failed operation including domain error information.
+  /// </summary>
+  /// <param name="logger">The logger instance.</param>
+  /// <param name="operationName">Logical name of the operation.</param>
+  /// <param name="errorCode">Domain error code.</param>
+  /// <param name="errorMessage">Human readable error message.</param>
+  /// <param name="exception">Optional underlying exception.</param>
+  [LoggerMessage(
+    EventId = 2002,
+    EventName = "OperationFailed",
+    Level = LogLevel.Warning,
+    Message = "Operation {OperationName} failed with code {ErrorCode}: {ErrorMessage}"
+  )]
+  public static partial void LogOperationFailed(this ILogger logger, string operationName, string errorCode, string errorMessage, Exception? exception);
+
+  /// <summary>
+  /// Logs a failed validation with number of validation errors.
+  /// </summary>
+  /// <param name="logger">The logger instance.</param>
+  /// <param name="operationName">Logical name of the operation.</param>
+  /// <param name="validationErrorCount">The number of validation errors.</param>
+  [LoggerMessage(
+    EventId = 2003,
+    EventName = "ValidationFailed",
+    Level = LogLevel.Warning,
+    Message = "Validation failed for operation {OperationName} with {ValidationErrorCount} errors"
+  )]
+  public static partial void LogValidationFailed(this ILogger logger, string operationName, int validationErrorCount);
 }

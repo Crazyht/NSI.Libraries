@@ -8,6 +8,12 @@ root=false
 ## Specific rules
 #######################################################
 
+## Relaxed analyzer severities for test code (performance/diagnostic flexibility)
+dotnet_diagnostic.S1215.severity = none   ## Allow controlled GC.Collect in perf/memory tests
+dotnet_diagnostic.S2925.severity = none   ## Allow Thread.Sleep for timing/contention scenarios
+dotnet_diagnostic.S6507.severity = none   ## Allow locking on locals in specific concurrency tests
+dotnet_diagnostic.S3928.severity = none   ## Allow custom argument names in negative test cases
+
 #######################################################
 ## Microsoft.CodeAnalysis.NetAnalyzers
 #######################################################

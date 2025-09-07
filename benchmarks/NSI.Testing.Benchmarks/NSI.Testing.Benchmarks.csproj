@@ -5,7 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Src\NSI.Testing\NSI.Testing.csproj" />
+    <ProjectReference Include="..\..\src\NSI.Testing\NSI.Testing.csproj" />
   </ItemGroup>
 
   <ItemGroup>

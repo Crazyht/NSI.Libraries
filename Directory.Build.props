@@ -5,6 +5,12 @@
     <EnableSdkContainerDebugging>false</EnableSdkContainerDebugging>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' 
+    AND !$(MSBuildProjectName.EndsWith('.Tests')) 
+    AND !$(MSBuildProjectName.EndsWith('.Benchmarks'))">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
   <ItemGroup Label="ProjectConfigurations"  Condition="'$(MSBuildProjectExtension)' == '.esproj'">
     <ProjectConfiguration Include="Debug|AnyCPU">
       <Configuration>Debug</Configuration>

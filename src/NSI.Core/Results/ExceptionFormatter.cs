@@ -2,12 +2,27 @@ using System.Text;
 
 namespace NSI.Core.Results;
 
+/// <summary>
+/// Provides helper extension methods to format exceptions into concise, HTTP-friendly text blocks.
+/// </summary>
+/// <remarks>
+/// Reduces nested exception output to a controlled depth and trims stack trace noise to only the
+/// first relevant frame, removing absolute file paths for portability/security.
+/// </remarks>
 public static class ExceptionFormatter {
 
   private const int StackPrefixLength = 3;
   private const int ExceptionNestLevel = 5;
 
+  /// <summary>
+  /// Formats an <see cref="Exception"/> (and its inner exceptions) into a compact single string
+  /// suitable for inclusion in HTTP problem details or logs.
+  /// </summary>
+  /// <param name="ex">The source exception.</param>
+  /// <returns>A trimmed multi-line string describing exception chain and first stack frame.</returns>
+  /// <exception cref="ArgumentNullException">Thrown when <paramref name="ex"/> is null.</exception>
   public static string FormatForHttp(this Exception ex) {
+    ArgumentNullException.ThrowIfNull(ex);
     var sb = new StringBuilder();
 
     for (var depth = 0; ex != null && depth < ExceptionNestLevel; depth++, ex = ex.InnerException!) {

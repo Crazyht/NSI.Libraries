@@ -1,0 +1,120 @@
+<Project>
+  <!-- Configuration spécifique pour PublishContainer -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' AND '$(PublishContainer)' == 'true'">
+    <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:9.0-alpine</ContainerBaseImage>
+    <EnableSdkContainerDebugging>false</EnableSdkContainerDebugging>
+  </PropertyGroup>
+
+  <ItemGroup Label="ProjectConfigurations"  Condition="'$(MSBuildProjectExtension)' == '.esproj'">
+    <ProjectConfiguration Include="Debug|AnyCPU">
+      <Configuration>Debug</Configuration>
+      <Platform>AnyCPU</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Local Testing|AnyCPU">
+      <Configuration>Local Testing</Configuration>
+      <Platform>AnyCPU</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|AnyCPU">
+      <Configuration>Release</Configuration>
+      <Platform>AnyCPU</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj'">
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Optimisations de performance -->
+    <!--<Optimize>true</Optimize>
+    <DebugType>portable</DebugType>-->
+
+    <!-- Configuration des symboles -->
+    <IncludeSymbols>true</IncludeSymbols>
+
+    <Configurations>Debug;Release;Local Testing</Configurations>
+  </PropertyGroup>
+
+
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' AND '$(Configuration)'=='Local Testing'">
+    <DefineConstants>$(DefineConstants);DEBUG;LOCAL_TESTING</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj'">
+    <!-- Enable .NET analyzers by default -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' AND !$(MSBuildProjectName.EndsWith('.Tests')) AND !$(MSBuildProjectName.EndsWith('.Benchmarks'))">
+    <!-- Configuration InternalsVisibleTo pour les tests -->
+    <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+    <InternalsVisibleTo Include="BlondSports.Admin.Api.Integration.Tests" />
+  </ItemGroup>
+
+  <!-- ===== CONFIGURATION PAR TYPE DE PROJET ===== -->
+  <!-- Projets de test -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' AND $(MSBuildProjectName.EndsWith('.Tests'))">
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj'" >
+    <CoverletOutput>$(MSBuildThisFileDirectory)coverage/</CoverletOutput>
+    <CollectCoverage Condition="'$(Configuration)' == 'Debug'">true</CollectCoverage>
+    <CoverletOutputFormat>cobertura</CoverletOutputFormat>
+    <Exclude>
+      [*.Tests]*,
+      [*.Benchmarks]*,
+      [*]Microsoft.Extensions.Configuration.Binder.SourceGeneration*,
+      [*]System.Runtime.CompilerServices*,
+      [*]System.Text.RegularExpressions.Generated*,
+      [*]*.Migrations.*
+    </Exclude>
+  </PropertyGroup>
+
+  <!-- Projets de benchmarks -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' AND $(MSBuildProjectName.EndsWith('.Benchmarks'))">
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- ===== CONFIGURATION CONDITIONNELLE ===== -->
+
+  <!-- Configuration Release -->
+  <!--
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' AND '$(Configuration)' == 'Release'">
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <DefineConstants>RELEASE</DefineConstants>
+  </PropertyGroup>
+  -->
+
+  <!-- Configuration Debug -->
+  <!--
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' AND '$(Configuration)' == 'Debug'">
+    <Optimize>false</Optimize>
+    <DebugType>full</DebugType>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+  -->
+
+  <!-- Projets de benchmarks -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' AND $(MSBuildProjectName.EndsWith('.Api'))">
+    <OutputType>Exe</OutputType>
+    <OpenApiDocumentsDirectory>.</OpenApiDocumentsDirectory>
+  </PropertyGroup>
+
+  <!-- ===== CONFIGURATION SOURCELINK ===== -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+</Project>

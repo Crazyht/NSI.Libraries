@@ -1,0 +1,12 @@
+<Project>
+  <!-- This file runs after the project files are evaluated -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' != '.esproj'">
+    <!-- Add StyleCop configuration file reference -->
+    <StyleCopSettingsFile>$(MSBuildThisFileDirectory)stylecop.json</StyleCopSettingsFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(StyleCopSettingsFile)')">
+    <AdditionalFiles Include="$(StyleCopSettingsFile)" />
+  </ItemGroup>
+
+</Project>

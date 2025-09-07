@@ -1,0 +1,46 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Local Testing" />
+    <BuildType Name="Release" />
+  </Configurations>
+  <Folder Name="/.github/">
+    <File Path=".github/copilot-instructions.md" />
+    <File Path=".github/dependabot.yml" />
+  </Folder>
+  <Folder Name="/.github/workflows/">
+    <File Path=".github/workflows/ci.yml" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <File Path="benchmarks/.editorconfig" />
+    <Project Path="benchmarks/NSI.Testing.Benchmarks/NSI.Testing.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/docs/" />
+  <Folder Name="/samples/" />
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Build.targets" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <File Path="src/.editorconfig" />
+    <Project Path="src/NSI.AspNetCore/NSI.AspNetCore.csproj" />
+    <Project Path="src/NSI.Core/NSI.Core.csproj" />
+    <Project Path="src/NSI.Domains/NSI.Domains.csproj" />
+    <Project Path="src/NSI.EntityFramework/NSI.EntityFramework.csproj" />
+    <Project Path="src/NSI.Json/NSI.Json.csproj" />
+    <Project Path="src/NSI.Testing/NSI.Testing.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="tests/.editorconfig" />
+    <Project Path="tests/NSI.AspNetCore.Tests/NSI.AspNetCore.Tests.csproj" />
+    <Project Path="tests/NSI.Core.Tests/NSI.Core.Tests.csproj" />
+    <Project Path="tests/NSI.Domains.Tests/NSI.Domains.Tests.csproj" />
+    <Project Path="tests/NSI.EntityFramework.Tests/NSI.EntityFramework.Tests.csproj" />
+    <Project Path="tests/NSI.Json.Tests/NSI.Json.Tests.csproj" />
+    <Project Path="tests/NSI.Testing.Tests/NSI.Testing.Tests.csproj" />
+  </Folder>
+</Solution>

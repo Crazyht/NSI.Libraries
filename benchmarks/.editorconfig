@@ -1,0 +1,73 @@
+root=false
+
+[*.{cs,vb}]
+# S3881: "IDisposable" should be implemented correctly
+dotnet_diagnostic.S3881.severity = none
+
+# Default severity for analyzer diagnostics with category 'Minor Code Smell'
+dotnet_analyzer_diagnostic.category-Minor Code Smell.severity = silent
+
+# S109: Magic numbers should not be used
+dotnet_diagnostic.S109.severity = none
+
+# S6669: Logger field or property name should comply with a naming convention
+dotnet_diagnostic.S6669.severity = none
+
+# CA1848: Use the LoggerMessage delegates
+dotnet_diagnostic.CA1848.severity = none
+
+# S1192: String literals should not be duplicated
+dotnet_diagnostic.S1192.severity = none
+
+# S6664: The code block contains too many logging calls
+dotnet_diagnostic.S6664.severity = none
+
+# S6354: Use a testable date/time provider
+dotnet_diagnostic.S6354.severity = none
+
+# S4462: Calls to "async" methods should not be blocking
+dotnet_diagnostic.S4462.severity = none
+
+# CA1859: Use concrete types when possible for improved performance
+dotnet_diagnostic.CA1859.severity = none
+
+# S1450: Private fields only used as local variables in methods should become local variables
+dotnet_diagnostic.S1450.severity = none
+
+# CA5394: Do not use insecure randomness
+dotnet_diagnostic.CA5394.severity = none
+
+# S131: "switch/Select" statements should contain a "default/Case Else" clauses
+dotnet_diagnostic.S131.severity = none
+
+# S1151: "switch case" clauses should not have too many lines of code
+dotnet_diagnostic.S1151.severity = none
+
+# S1215: "GC.Collect" should not be called
+dotnet_diagnostic.S1215.severity = none
+
+# CA2254: Template should be a static expression
+dotnet_diagnostic.CA2254.severity = none
+
+# S2629: Logging templates should be constant
+dotnet_diagnostic.S2629.severity = none
+
+# S2197: Modulus results should not be checked for direct equality
+dotnet_diagnostic.S2197.severity = none
+
+# S1541: Methods and properties should not be too complex
+dotnet_diagnostic.S1541.severity = none
+
+# S1227: break statements should not be used except for switch cases
+dotnet_diagnostic.S1227.severity = none
+
+# CA1515: Consider making public types internal
+dotnet_diagnostic.CA1515.severity = none
+
+# CA1063: Implement IDisposable Correctly
+dotnet_diagnostic.CA1063.severity = none
+
+# CA1816: Dispose methods should call SuppressFinalize
+dotnet_diagnostic.CA1816.severity = none
+# CA1707: Identifiers should not contain underscores
+dotnet_diagnostic.CA1707.severity = none

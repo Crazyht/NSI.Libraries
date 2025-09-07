@@ -1,0 +1,75 @@
+version: 2
+updates:
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@owner"
+    assignees:
+      - "@owner"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # .NET NuGet dependencies
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "@owner"
+    assignees:
+      - "@owner"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "nuget"
+    ignore:
+      # Ignore patch updates for stable packages
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-patch"]
+      - dependency-name: "Microsoft.EntityFrameworkCore.*"
+        update-types: ["version-update:semver-patch"]
+    groups:
+      # Group Microsoft packages together
+      microsoft-extensions:
+        patterns:
+          - "Microsoft.Extensions.*"
+        update-types:
+          - "minor"
+          - "patch"
+      microsoft-ef:
+        patterns:
+          - "Microsoft.EntityFrameworkCore.*"
+        update-types:
+          - "minor"
+          - "patch"
+      testing-frameworks:
+        patterns:
+          - "xunit*"
+          - "NSubstitute"
+          - "coverlet.*"
+          - "Microsoft.NET.Test.Sdk"
+        update-types:
+          - "minor"
+          - "patch"
+      analyzers:
+        patterns:
+          - "*Analyzer*"
+          - "SonarAnalyzer.*"
+        update-types:
+          - "minor"
+          - "patch"

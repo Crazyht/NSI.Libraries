@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NSI.Core\NSI.Core.csproj" />
+    <ProjectReference Include="..\NSI.Domains\NSI.Domains.csproj" />
+    <ProjectReference Include="..\NSI.Json\NSI.Json.csproj" />
+  </ItemGroup>
+</Project>

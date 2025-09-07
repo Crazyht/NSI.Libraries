@@ -8,10 +8,9 @@ namespace NSI.Specifications.Projection;
 /// </summary>
 /// <typeparam name="TSource">Source entity type.</typeparam>
 /// <typeparam name="TResult">Projection result type.</typeparam>
-public interface IProjectionSpecification<TSource, TResult>
-{
-    /// <summary>
-    /// Gets the selector expression used for the projection.
-    /// </summary>
-    public Expression<Func<TSource, TResult>> Selector { get; }
+public interface IProjectionSpecification<TSource, TResult> {
+  /// <summary>
+  /// Gets the selector expression used for the projection.
+  /// </summary>
+  public Expression<Func<TSource, TResult>> Selector { get; }
 }

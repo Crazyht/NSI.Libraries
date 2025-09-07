@@ -10,22 +10,19 @@ namespace NSI.Specifications.Filtering.Comparison;
 /// <typeparam name="T">Entity type.</typeparam>
 /// <typeparam name="TKey">Comparable value type.</typeparam>
 public sealed class GreaterThanSpecification<T, TKey>(Expression<Func<T, TKey>> selector, TKey value)
-  : Specification<T>, IFilterSpecification<T> where TKey : IComparable<TKey>
-{
-    private readonly Expression<Func<T, TKey>> _Selector = selector ?? throw new ArgumentNullException(nameof(selector));
-    private readonly TKey _Value = value;
+  : Specification<T>, IFilterSpecification<T> where TKey : IComparable<TKey> {
+  private readonly Expression<Func<T, TKey>> _Selector = selector ?? throw new ArgumentNullException(nameof(selector));
+  private readonly TKey _Value = value;
 
-    /// <inheritdoc />
-    public override Expression<Func<T, bool>> ToExpression()
-    {
-        var parameter = _Selector.Parameters[0];
-        var body = _Selector.Body;
-        var constant = Expression.Constant(_Value, typeof(TKey));
-        Expression comparison = Expression.GreaterThan(body, constant);
-        if (body is MemberExpression me && me.Expression is not ParameterExpression)
-        {
-            comparison = GuardBuilder.Build(_Selector.Body, comparison, parameter);
-        }
-        return Expression.Lambda<Func<T, bool>>(comparison, parameter);
+  /// <inheritdoc />
+  public override Expression<Func<T, bool>> ToExpression() {
+    var parameter = _Selector.Parameters[0];
+    var body = _Selector.Body;
+    var constant = Expression.Constant(_Value, typeof(TKey));
+    Expression comparison = Expression.GreaterThan(body, constant);
+    if (body is MemberExpression me && me.Expression is not ParameterExpression) {
+      comparison = GuardBuilder.Build(_Selector.Body, comparison, parameter);
     }
+    return Expression.Lambda<Func<T, bool>>(comparison, parameter);
+  }
 }

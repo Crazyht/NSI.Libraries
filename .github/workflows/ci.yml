@@ -196,19 +196,37 @@ jobs:
           echo "DOTNET VERSION:" $(dotnet --version)
           echo "Restoring tools (if any)"
 
-      - name: 📦 Restore dependencies
+      - name: � Detect Code Scanning availability
+        id: codescan
+        run: |
+          set -e
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/code-scanning/alerts?per_page=1)
+          if [ "$status" != "200" ]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "Code scanning not enabled (HTTP $status) – skipping CodeQL." >&2
+          else
+            echo "enabled=true" >> $GITHUB_OUTPUT
+            echo "Code scanning enabled." >&2
+          fi
+
+      - name: �📦 Restore dependencies
         run: dotnet restore
 
       - name: 🔍 Security audit
         run: dotnet list package --vulnerable --include-transitive || true
 
       - name: 🛡️ CodeQL Init
+        if: steps.codescan.outputs.enabled == 'true'
         uses: github/codeql-action/init@v3
         with:
           languages: csharp
           build-mode: manual
 
       - name: 🏗️ Manual build (src projects)
+        if: steps.codescan.outputs.enabled == 'true'
         run: |
           set -euo pipefail
           echo "Enumerating src projects for manual build..."
@@ -235,7 +253,12 @@ jobs:
           ls -R ./codeql-databases || true
 
       - name: 🛡️ Perform CodeQL Analysis
+        if: steps.codescan.outputs.enabled == 'true'
         uses: github/codeql-action/analyze@v3
+
+      - name: ℹ️ CodeQL skipped
+        if: steps.codescan.outputs.enabled == 'false'
+        run: echo "CodeQL steps skipped because code scanning is not enabled for this repository."
 
   # ===== JOB 4: PACKAGE BUILD =====
   package:

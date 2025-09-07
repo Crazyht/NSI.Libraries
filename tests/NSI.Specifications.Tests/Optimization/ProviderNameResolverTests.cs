@@ -14,22 +14,20 @@ public class ProviderNameResolverTests
         public TResult Execute<TResult>(System.Linq.Expressions.Expression expression) => default!;
     }
 
-    private sealed class DummyQueryable : IQueryable
+    private sealed class DummyQueryable(System.Linq.Expressions.Expression expr, IQueryProvider prov) : IQueryable
     {
-        public DummyQueryable(System.Linq.Expressions.Expression expr, IQueryProvider prov) { Expression = expr; Provider = prov; }
         public System.Collections.IEnumerator GetEnumerator() => System.Linq.Enumerable.Empty<object>().GetEnumerator();
-        public System.Linq.Expressions.Expression Expression { get; }
-        public IQueryProvider Provider { get; }
+        public System.Linq.Expressions.Expression Expression { get; } = expr;
+        public IQueryProvider Provider { get; } = prov;
         public System.Type ElementType => typeof(object);
     }
 
-    private sealed class DummyQueryable<T> : IQueryable<T>
+    private sealed class DummyQueryable<T>(System.Linq.Expressions.Expression expr, IQueryProvider prov) : IQueryable<T>
     {
-        public DummyQueryable(System.Linq.Expressions.Expression expr, IQueryProvider prov) { Expression = expr; Provider = prov; }
         public System.Collections.Generic.IEnumerator<T> GetEnumerator() => System.Linq.Enumerable.Empty<T>().GetEnumerator();
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
-        public System.Linq.Expressions.Expression Expression { get; }
-        public IQueryProvider Provider { get; }
+        public System.Linq.Expressions.Expression Expression { get; } = expr;
+        public IQueryProvider Provider { get; } = prov;
         public System.Type ElementType => typeof(T);
     }
 

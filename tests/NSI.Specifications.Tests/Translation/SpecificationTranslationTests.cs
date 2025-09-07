@@ -11,6 +11,7 @@ using NSI.Specifications.Sorting;
 using NSI.Specifications.Projection;
 using NSI.Specifications.Include;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace NSI.Specifications.Tests.Translation;
 
@@ -51,8 +52,11 @@ public sealed class SpecificationTranslationTests : IDisposable
         }
     }
 
-    public SpecificationTranslationTests()
+    private readonly ITestOutputHelper _Output;
+
+    public SpecificationTranslationTests(ITestOutputHelper output)
     {
+        _Output = output;
         _Conn = new SqliteConnection("DataSource=:memory:;Cache=Shared");
         _Conn.Open();
         var options = new DbContextOptionsBuilder<TestDbContext>()
@@ -109,7 +113,19 @@ public sealed class SpecificationTranslationTests : IDisposable
         var query = _Ctx.Authors.Include(include).Select(proj);
         var sql = query.ToQueryString();
         Assert.Contains("SELECT", sql, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("LEFT JOIN", sql, StringComparison.OrdinalIgnoreCase);
+        // SQLite may translate Include + projection(count) via a correlated subquery instead of a LEFT JOIN.
+        // Accept either pattern: a LEFT JOIN or a correlated subquery referencing Books.
+        // For SQLite, Include + projection of collection Count often becomes correlated scalar subquery WITHOUT explicit JOIN.
+        // Minimal invariant: a nested SELECT COUNT referencing Books table.
+        _Output.WriteLine("Generated SQL:\n{0}", sql);
+        // In SQLite the include + projection of child collection count appears as a correlated scalar subquery.
+        // Minimal invariants we enforce:
+        // 1. A nested SELECT COUNT(*) subquery.
+        // 2. The Books table name appears.
+        // 3. Correlation on AuthorId (ensures not client eval after materialization).
+        Assert.Contains("SELECT COUNT(*)", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"Books\"", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AuthorId", sql, StringComparison.OrdinalIgnoreCase);
         _ = query.ToArray();
     }
 

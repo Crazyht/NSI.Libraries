@@ -45,5 +45,6 @@
     <Project Path="tests/NSI.Json.Tests/NSI.Json.Tests.csproj" />
     <Project Path="tests/NSI.Testing.Tests/NSI.Testing.Tests.csproj" />
     <Project Path="tests/NSI.Specifications.Tests/NSI.Specifications.Tests.csproj" />
+    <Project Path="tests/NSI.Specifications.Npgsql.Tests/NSI.Specifications.Npgsql.Tests.csproj" />
   </Folder>
 </Solution>

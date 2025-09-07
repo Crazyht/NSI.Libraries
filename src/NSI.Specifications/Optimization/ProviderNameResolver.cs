@@ -27,29 +27,36 @@ public static class ProviderNameResolver
         {
             return "EfCore";
         }
-
         var name = providerTypeName;
-        if (name.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        if (Matches(name, "Npgsql"))
         {
             return "Pg";
         }
-        if (name.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        if (IsEntityQueryProvider(name) && IsAssemblyLoaded("Npgsql.EntityFrameworkCore.PostgreSQL"))
+        {
+            return "Pg";
+        }
+        if (Matches(name, "SqlServer"))
         {
             return "SqlServer";
         }
-        if (name.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        if (Matches(name, "Sqlite"))
         {
             return "Sqlite";
         }
-        if (name.Contains("MySql", StringComparison.OrdinalIgnoreCase) || name.Contains("Pomelo", StringComparison.OrdinalIgnoreCase))
+        if (Matches(name, "MySql") || Matches(name, "Pomelo"))
         {
             return "MySql";
         }
-        if (name.Contains("InMemory", StringComparison.OrdinalIgnoreCase))
+        if (Matches(name, "InMemory"))
         {
             return "InMemory";
         }
-        // Default bucket for unknown EF providers
-        return "EfCore";
+        return "EfCore"; // default bucket
     }
+
+    private static bool Matches(string source, string token) => source.Contains(token, StringComparison.OrdinalIgnoreCase);
+    private static bool IsEntityQueryProvider(string name) => name.Contains("EntityQueryProvider", StringComparison.Ordinal);
+    private static bool IsAssemblyLoaded(string prefix) => AppDomain.CurrentDomain.GetAssemblies()
+        .Any(a => a.GetName().Name?.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) == true);
 }

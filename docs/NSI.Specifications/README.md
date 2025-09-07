@@ -2,6 +2,8 @@
 
 Composable, testable, provider-aware specification pattern utilities for .NET / EF Core.
 
+> Provider-specific PostgreSQL optimizations: see `../NSI.Specifications.Npgsql/README.md`.
+
 ## Why
 
 Avoid scattering ad‑hoc `Where`, `Include`, `OrderBy` and projection logic across repositories / services. Encapsulate *intent* as reusable specification objects that can:
@@ -142,7 +144,7 @@ SpecOptimizationRegistry.Register("Pg", new MyStartsWithOptimization());
 
 ## Roadmap
 
-* Real PostgreSQL ILIKE rewrites (Issue #16)
+* PostgreSQL ILIKE rewrites (DONE in provider package)
 * Translation validation suite (Issue #15)
 * Pagination helpers (Skip/Take spec)
 * Query builder façade

@@ -29,8 +29,9 @@ public sealed class ContainsSpecification<T>(Expression<Func<T, string?>> select
 
         if (_IgnoreCase)
         {
-            stringExpr = Expression.Call(stringExpr, typeof(string).GetMethod(nameof(string.ToLowerInvariant))!);
-            termExpr = Expression.Call(termExpr, typeof(string).GetMethod(nameof(string.ToLowerInvariant))!);
+            // Use ToLower (translatable across providers incl. SQLite); optimization layer also detects this.
+            stringExpr = Expression.Call(stringExpr, typeof(string).GetMethod(nameof(string.ToLower), Type.EmptyTypes)!);
+            termExpr = Expression.Call(termExpr, typeof(string).GetMethod(nameof(string.ToLower), Type.EmptyTypes)!);
         }
 
         var contains = Expression.Call(stringExpr, typeof(string).GetMethod(nameof(string.Contains), [typeof(string)])!, termExpr);

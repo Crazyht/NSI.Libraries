@@ -29,8 +29,8 @@ public sealed class EndsWithSpecification<T>(Expression<Func<T, string?>> select
 
         if (_IgnoreCase)
         {
-            stringExpr = Expression.Call(stringExpr, typeof(string).GetMethod(nameof(string.ToLowerInvariant))!);
-            termExpr = Expression.Call(termExpr, typeof(string).GetMethod(nameof(string.ToLowerInvariant))!);
+            stringExpr = Expression.Call(stringExpr, typeof(string).GetMethod(nameof(string.ToLower), Type.EmptyTypes)!);
+            termExpr = Expression.Call(termExpr, typeof(string).GetMethod(nameof(string.ToLower), Type.EmptyTypes)!);
         }
 
         var endsWith = Expression.Call(stringExpr, typeof(string).GetMethod(nameof(string.EndsWith), [typeof(string)])!, termExpr);

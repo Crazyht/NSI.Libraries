@@ -29,8 +29,8 @@ public sealed class StartsWithSpecification<T>(Expression<Func<T, string?>> sele
 
         if (_IgnoreCase)
         {
-            stringExpr = Expression.Call(stringExpr, typeof(string).GetMethod(nameof(string.ToLowerInvariant))!);
-            termExpr = Expression.Call(termExpr, typeof(string).GetMethod(nameof(string.ToLowerInvariant))!);
+            stringExpr = Expression.Call(stringExpr, typeof(string).GetMethod(nameof(string.ToLower), Type.EmptyTypes)!);
+            termExpr = Expression.Call(termExpr, typeof(string).GetMethod(nameof(string.ToLower), Type.EmptyTypes)!);
         }
 
         var startsWith = Expression.Call(stringExpr, typeof(string).GetMethod(nameof(string.StartsWith), [typeof(string)])!, termExpr);

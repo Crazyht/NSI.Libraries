@@ -335,3 +335,4 @@ jobs:
           echo "| Package Build | ${{ needs.package.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Version | ${{ needs.package.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
         fi
+        

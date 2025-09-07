@@ -23,10 +23,10 @@ namespace NSI.Core.Results;
 /// <code>
 /// // Create success result
 /// var success = Result.Success(42);
-/// 
+///
 /// // Create failure result
 /// var failure = Result.Failure&lt;int&gt;("Invalid input");
-/// 
+///
 /// // Chain operations
 /// var result = ParseInteger("10")
 ///   .Map(x => x * 2)
@@ -103,7 +103,7 @@ public readonly struct Result<T>: IEquatable<Result<T>> {
   /// <code>
   /// var result = Result.Success(5)
   ///   .Map(x => x * 2); // Result.Success(10)
-  /// 
+  ///
   /// var failure = Result.Failure&lt;int&gt;("Error")
   ///   .Map(x => x * 2); // Still Result.Failure&lt;int&gt;("Error")
   /// </code>
@@ -267,4 +267,5 @@ public readonly struct Result<T>: IEquatable<Result<T>> {
   /// </summary>
   /// <param name="error">The error.</param>
   public static implicit operator Result<T>(ResultError error) => Result.Failure<T>(error);
+
 }

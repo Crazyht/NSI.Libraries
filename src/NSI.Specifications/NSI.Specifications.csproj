@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <Description>Specification pattern library: composable filtering, includes, sorting, projection &amp; provider optimizations for EF Core.</Description>
+    <PackageTags>Specification;SpecificationPattern;Domain;Filtering;Sorting;Include;Projection;EFCore;LINQ</PackageTags>
+    <RepositoryUrl>https://github.com/Crazyht/NSI.Libraries</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Crazyht/NSI.Libraries/tree/main/docs/NSI.Specifications</PackageProjectUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Version>0.1.0-preview.1</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="../../docs/NSI.Specifications/README.md" Pack="true" PackagePath="/" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

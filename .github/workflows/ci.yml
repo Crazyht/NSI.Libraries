@@ -339,6 +339,23 @@ jobs:
             -p:PackageVersion=${{ steps.version.outputs.version }} \
             -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
             -p:RepositoryCommit=${{ github.sha }}
+
+          # Newly added specification libraries (Issue #18)
+          dotnet pack src/NSI.Specifications/NSI.Specifications.csproj \
+            --configuration Release \
+            --no-restore \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.version }} \
+            -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -p:RepositoryCommit=${{ github.sha }}
+
+          dotnet pack src/NSI.Specifications.Npgsql/NSI.Specifications.Npgsql.csproj \
+            --configuration Release \
+            --no-restore \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.version }} \
+            -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -p:RepositoryCommit=${{ github.sha }}
       - name: 📤 Upload packages
         uses: actions/upload-artifact@v4
         with:
@@ -441,4 +458,3 @@ jobs:
             echo "| Package Build | ${{ needs.package.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
             echo "| Version | ${{ needs.package.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
           fi
-        

@@ -212,15 +212,15 @@ internal sealed record DecimalId(decimal Value): StronglyTypedId<DecimalId, deci
 internal sealed record DateId(DateTime Value): StronglyTypedId<DateId, DateTime>(Value);
 
 // Add at class level
-internal struct CustomValueType(int value): IEquatable<CustomValueType> {
+internal readonly struct CustomValueType(int value): IEquatable<CustomValueType> {
   public int Value { get; } = value;
 
-  public override bool Equals(object? obj) =>
+  public override readonly bool Equals(object? obj) =>
       obj is CustomValueType other && other.Value == Value;
 
-  public bool Equals(CustomValueType other) => Value == other.Value;
+  public readonly bool Equals(CustomValueType other) => Value == other.Value;
 
-  public override int GetHashCode() => Value.GetHashCode();
+  public override readonly int GetHashCode() => Value.GetHashCode();
 }
 
 internal sealed record CustomTypeId(CustomValueType Value)

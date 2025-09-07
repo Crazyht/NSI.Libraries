@@ -33,6 +33,8 @@
     <Project Path="src/NSI.EntityFramework/NSI.EntityFramework.csproj" />
     <Project Path="src/NSI.Json/NSI.Json.csproj" />
     <Project Path="src/NSI.Testing/NSI.Testing.csproj" />
+    <Project Path="src/NSI.Specifications/NSI.Specifications.csproj" />
+    <Project Path="src/NSI.Specifications.Npgsql/NSI.Specifications.Npgsql.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <File Path="tests/.editorconfig" />
@@ -42,5 +44,7 @@
     <Project Path="tests/NSI.EntityFramework.Tests/NSI.EntityFramework.Tests.csproj" />
     <Project Path="tests/NSI.Json.Tests/NSI.Json.Tests.csproj" />
     <Project Path="tests/NSI.Testing.Tests/NSI.Testing.Tests.csproj" />
+    <Project Path="tests/NSI.Specifications.Tests/NSI.Specifications.Tests.csproj" />
+    <Project Path="tests/NSI.Specifications.Npgsql.Tests/NSI.Specifications.Npgsql.Tests.csproj" />
   </Folder>
 </Solution>

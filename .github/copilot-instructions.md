@@ -43,10 +43,12 @@ Version: 1.3 (May 2025)
 
 ### 📐 Formatting Basics
 
-- Indentation: 2 spaces
+- Indentation: 2 spaces (no tabs committed)
 - Line endings: LF (Unix)
 - Max line length: 100 characters
-- Files must end with newline
+- Files must end with a newline (CI enforces)
+- Trailing whitespace is trimmed (except in Markdown as configured)
+- Brace placement: no explicit rule enforced in `.editorconfig` – keep the existing style of the touched file (do not reflow braces arbitrarily). When adding new code prefer the dominant style in that directory.
 
 ### 🔍 Analyzer Compliance
 
@@ -100,17 +102,24 @@ All code should look like it was written by a single developer. Use these standa
 
 #### Braces and Indentation
 
-```csharp
-// ✅ GOOD - K&R style
-if (condition) {
-  DoSomething();
-}
+No global brace rule is enforced by `.editorconfig`. Follow the existing local style of the file you modify. Avoid mixing styles within the same file. (Earlier guidance about forcing K&R has been removed to reflect current configuration.)
 
-// ❌ BAD - Allman style
-if (condition)
-{
-  DoSomething();
+#### Base Type / Interface List Spacing
+
+Style: NO space before the colon `:`, exactly one space after it, and one space after each comma.
+
+```csharp
+public sealed class SpecificationTranslationTests: IDisposable, IAsyncDisposable {
+  // ...
 }
+```
+
+Disallowed examples:
+
+```csharp
+public sealed class SpecificationTranslationTests : IDisposable { }    // space before colon (not allowed)
+public sealed class SpecificationTranslationTests:IDisposable { }      // missing space after colon
+public sealed class SpecificationTranslationTests: IDisposable,IAsyncDisposable { } // missing space after comma
 ```
 
 #### Expression-Bodied Members
@@ -531,32 +540,45 @@ Organize EventIds by feature/component:
 
 ## Code Formatting (.editorconfig)
 
+Below is a distilled view of the active `.editorconfig` entries that affect day‑to‑day authoring. (The real file contains the full, exhaustive ruleset for analyzers and naming.)
+
 ```ini
-# Core formatting
 [*]
 indent_style = space
 indent_size = 2
 end_of_line = lf
-charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
+charset = utf-8
 max_line_length = 100
 
-# C# specific
+[*.md]
+trim_trailing_whitespace = false
+
 [*.cs]
-# Naming conventions enforced
+# Private field prefix style
 dotnet_naming_style.private_field_prefix_style.capitalization = pascal_case
 dotnet_naming_style.private_field_prefix_style.required_prefix = _
 
-# Code style
-csharp_new_line_before_open_brace = none  # K&R style
+# Representative style rules (non‑exhaustive)
 csharp_prefer_braces = true:warning
 csharp_style_var_when_type_is_apparent = true:warning
-
-# XML project files
-[*.{csproj,vbproj,vcxproj,vcxproj.filters,proj,projitems,shproj}]
-indent_size = 2
+dotnet_style_predefined_type_for_locals_parameters_members = true:warning
+dotnet_style_require_accessibility_modifiers = always:error
+dotnet_style_namespace_match_folder = true:error
 ```
+
+Key additional enforced concepts (see full `.editorconfig` for details):
+
+- No public/protected instance fields (must use properties) – violations error out.
+- Private fields must be prefixed with `_` and use PascalCase after the underscore.
+- Constant & static readonly fields: PascalCase.
+- Analyzer-driven rules enforce explicit accessibility modifiers and namespace ↔ folder alignment.
+- Use `var` when the type is apparent or a built-in type.
+- Prefer expression-bodied members where the rule severity allows and complexity stays low.
+- Parentheses are required for clarity in most binary expressions (`always_for_clarity`).
+
+Brace new-line placement is intentionally not fixed here—match neighboring code.
 
 ---
 

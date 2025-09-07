@@ -16,7 +16,7 @@ namespace NSI.Testing.Benchmarks;
 [ThreadingDiagnoser]
 [SimpleJob]
 [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "BenchmarkDotNet requires instance methods")]
-public class QueryPerformanceBenchmarks {
+public partial class QueryPerformanceBenchmarks {
   private ILogEntryStore _Store = null!;
   private ILogger<QueryPerformanceBenchmarks> _Logger = null!;
   private IReadOnlyList<LogEntry> _TestData = null!;
@@ -84,7 +84,7 @@ public class QueryPerformanceBenchmarks {
   /// <returns>Number of matching entries for verification.</returns>
   [Benchmark]
   public int Query_RegexMatching() {
-    var emailPattern = new Regex(@"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", RegexOptions.Compiled);
+    var emailPattern = MyRegex();
     var numberPattern = new Regex(@"\b\d{4,}\b", RegexOptions.Compiled);
 
     var emailMatches = _TestData.WithMessageMatch(emailPattern).Count();
@@ -359,4 +359,7 @@ public class QueryPerformanceBenchmarks {
 
     return depth;
   }
+
+  [GeneratedRegex(@"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", RegexOptions.Compiled)]
+  private static partial Regex MyRegex();
 }

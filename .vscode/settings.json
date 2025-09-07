@@ -1,0 +1,21 @@
+{
+    "editor.formatOnSave": true,
+    "[csharp]": {
+        "editor.defaultFormatter": "ms-dotnettools.csharp",
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true
+    },
+    "dotnet_analyzer_diagnostic.category-Style.severity": "warning",
+    "dotnet_analyzer_diagnostic.category-Design.severity": "warning",
+    "dotnet_analyzer_diagnostic.category-Maintainability.severity": "warning",
+    "dotnet_analyzer_diagnostic.category-Reliability.severity": "warning",
+    "dotnet_analyzer_diagnostic.category-Security.severity": "warning",
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true,
+    "editor.rulers": [
+        100
+    ],
+    "csharp.format.enable": true,
+    "dotnet.defaultSolution": "NSI.Libraries.slnx",
+    "dotnet.format.enable": true
+}

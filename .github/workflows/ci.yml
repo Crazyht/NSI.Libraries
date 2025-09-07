@@ -199,7 +199,7 @@ jobs:
 
     - name: 🏗️ Build packages
       run: |
-  dotnet pack src/NSI.Core/NSI.Core.csproj \
+        dotnet pack src/NSI.Core/NSI.Core.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -207,7 +207,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-  dotnet pack src/NSI.Domains/NSI.Domains.csproj \
+        dotnet pack src/NSI.Domains/NSI.Domains.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -215,7 +215,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-  dotnet pack src/NSI.AspNetCore/NSI.AspNetCore.csproj \
+        dotnet pack src/NSI.AspNetCore/NSI.AspNetCore.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -223,7 +223,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-  dotnet pack src/NSI.EntityFramework/NSI.EntityFramework.csproj \
+        dotnet pack src/NSI.EntityFramework/NSI.EntityFramework.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -231,7 +231,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-  dotnet pack src/NSI.Json/NSI.Json.csproj \
+        dotnet pack src/NSI.Json/NSI.Json.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -239,7 +239,7 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-  dotnet pack src/NSI.Testing/NSI.Testing.csproj \
+        dotnet pack src/NSI.Testing/NSI.Testing.csproj \
           --configuration Release \
           --no-restore \
           --output ./packages \
@@ -247,12 +247,12 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
 
-    - name: 📤 Upload packages
-      uses: actions/upload-artifact@v4
-      with:
-        name: nuget-packages-${{ steps.version.outputs.version }}
-        path: ./packages/*.nupkg
-        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+      - name: 📤 Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-${{ steps.version.outputs.version }}
+          path: ./packages/*.nupkg
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
   # ===== JOB 5: BENCHMARKS =====
   benchmarks:
@@ -279,14 +279,14 @@ jobs:
 
     - name: ⚡ Run benchmarks
       run: |
-  cd benchmarks/NSI.Testing.Benchmarks
+        cd benchmarks/NSI.Testing.Benchmarks
         dotnet run --configuration Release --no-build > benchmark-results.txt 2>&1
 
     - name: 📤 Upload benchmark results
       uses: actions/upload-artifact@v4
       with:
         name: benchmark-results-${{ github.run_number }}
-        path: Benchmarks/NSI.Testing.Benchmarks/benchmark-results.txt
+        path: benchmarks/NSI.Testing.Benchmarks/benchmark-results.txt
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
   # ===== JOB 6: QUALITY GATE =====

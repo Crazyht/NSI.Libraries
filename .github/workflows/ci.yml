@@ -45,8 +45,33 @@ jobs:
       - name: 📋 EditorConfig validation
         run: |
           echo "Checking .editorconfig compliance..."
-          find . -name "*.cs" -exec file {} \; | grep -v "UTF-8" && exit 1 || echo "✅ All files are UTF-8"
-          find . -name "*.cs" -exec grep -l $'\r' {} \; && exit 1 || echo "✅ No CRLF line endings found"
+          set -euo pipefail
+          # List only tracked C# source files (excludes obj/, bin/, generated artifacts)
+          cs_files="$(git ls-files '*.cs')"
+          if [ -z "$cs_files" ]; then
+            echo "No C# files found"
+            exit 0
+          fi
+
+          echo "🔎 Verifying file encodings (accept UTF-8 and US-ASCII subset)..."
+          bad_encoding=$(echo "$cs_files" | xargs -I{} file -i {} | grep -viE 'charset=(utf-8|us-ascii)' || true)
+          if [ -n "$bad_encoding" ]; then
+            echo "❌ Non UTF-8 encodings detected:" >&2
+            echo "$bad_encoding" >&2
+            exit 1
+          else
+            echo "✅ All files are UTF-8 (or ASCII subset)"
+          fi
+
+          echo "🔎 Checking for CRLF line endings..."
+          crlf_files=$(echo "$cs_files" | xargs grep -Il $'\r' || true)
+          if [ -n "$crlf_files" ]; then
+            echo "❌ Files with CRLF line endings detected:" >&2
+            echo "$crlf_files" | sed 's/^/ - /' >&2
+            exit 1
+          else
+            echo "✅ No CRLF line endings found"
+          fi
 
       - name: 🏗️ Build solution
         run: dotnet build --no-restore --configuration Release --verbosity minimal
@@ -297,7 +322,11 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: 📊 Check quality requirements
+      - name: � Checkout code (for summary context)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: �📊 Check quality requirements
         run: |
           echo "Checking CI results..."
 

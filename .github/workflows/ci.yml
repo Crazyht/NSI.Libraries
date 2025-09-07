@@ -26,33 +26,33 @@ jobs:
     timeout-minutes: 15
 
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: 🏗️ Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: 🏗️ Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: 📦 Restore dependencies
-      run: dotnet restore --verbosity minimal
+      - name: 📦 Restore dependencies
+        run: dotnet restore --verbosity minimal
 
-    - name: 🔍 Code formatting check
-      run: dotnet format --verify-no-changes --verbosity diagnostic
+      - name: 🔍 Code formatting check
+        run: dotnet format --verify-no-changes --verbosity diagnostic
 
-    - name: 📋 EditorConfig validation
-      run: |
-        echo "Checking .editorconfig compliance..."
-        find . -name "*.cs" -exec file {} \; | grep -v "UTF-8" && exit 1 || echo "✅ All files are UTF-8"
-        find . -name "*.cs" -exec grep -l $'\r' {} \; && exit 1 || echo "✅ No CRLF line endings found"
+      - name: 📋 EditorConfig validation
+        run: |
+          echo "Checking .editorconfig compliance..."
+          find . -name "*.cs" -exec file {} \; | grep -v "UTF-8" && exit 1 || echo "✅ All files are UTF-8"
+          find . -name "*.cs" -exec grep -l $'\r' {} \; && exit 1 || echo "✅ No CRLF line endings found"
 
-    - name: 🏗️ Build solution
-      run: dotnet build --no-restore --configuration Release --verbosity minimal
+      - name: 🏗️ Build solution
+        run: dotnet build --no-restore --configuration Release --verbosity minimal
 
-    - name: 📊 Code analysis
-      run: dotnet build --no-restore --configuration Release --verbosity normal --property WarningsAsErrors=""
+      - name: 📊 Code analysis
+        run: dotnet build --no-restore --configuration Release --verbosity normal --property WarningsAsErrors=""
 
   # ===== JOB 2: TESTS =====
   test:
@@ -72,58 +72,58 @@ jobs:
             filter: "Category=Integration"
 
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: 🏗️ Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: 🏗️ Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: 📦 Restore dependencies
-      run: dotnet restore --verbosity minimal
+      - name: 📦 Restore dependencies
+        run: dotnet restore --verbosity minimal
 
-    - name: 🏗️ Build for testing
-      run: dotnet build --no-restore --configuration Debug
+      - name: 🏗️ Build for testing
+        run: dotnet build --no-restore --configuration Debug
 
-    - name: 🧪 Run ${{ matrix.test-group.name }}
-      run: |
-        dotnet test ${{ matrix.test-group.projects }} \
-          --no-build \
-          --configuration Debug \
-          --logger "trx;LogFileName=test-results-${{ matrix.test-group.name }}.trx" \
-          --logger "console;verbosity=minimal" \
-          --collect:"XPlat Code Coverage" \
-          --results-directory ./test-results \
-          --filter "${{ matrix.test-group.filter }}" \
-          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+      - name: 🧪 Run ${{ matrix.test-group.name }}
+        run: |
+          dotnet test ${{ matrix.test-group.projects }} \
+            --no-build \
+            --configuration Debug \
+            --logger "trx;LogFileName=test-results-${{ matrix.test-group.name }}.trx" \
+            --logger "console;verbosity=minimal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./test-results \
+            --filter "${{ matrix.test-group.filter }}" \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
-    - name: 📊 Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results-${{ matrix.test-group.name }}
-        path: ./test-results/
-        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+            name: test-results-${{ matrix.test-group.name }}
+            path: ./test-results/
+            retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-    - name: 📈 Code coverage summary
-      run: |
-        dotnet tool install -g dotnet-reportgenerator-globaltool
-        reportgenerator \
-          -reports:"./test-results/**/coverage.opencover.xml" \
-          -targetdir:"./coverage-report" \
-          -reporttypes:"Html;TextSummary" \
-          -verbosity:Warning
-        cat ./coverage-report/Summary.txt
+      - name: 📈 Code coverage summary
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator \
+            -reports:"./test-results/**/coverage.opencover.xml" \
+            -targetdir:"./coverage-report" \
+            -reporttypes:"Html;TextSummary" \
+            -verbosity:Warning
+          cat ./coverage-report/Summary.txt
 
-    - name: 📤 Upload coverage reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report-${{ matrix.test-group.name }}
-        path: ./coverage-report/
-        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+      - name: 📤 Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.test-group.name }}
+          path: ./coverage-report/
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
   # ===== JOB 3: SECURITY SCAN =====
   security:
@@ -136,30 +136,30 @@ jobs:
       security-events: write
 
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
 
-    - name: 🏗️ Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: 🏗️ Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: 📦 Restore dependencies
-      run: dotnet restore
+      - name: 📦 Restore dependencies
+        run: dotnet restore
 
-    - name: 🔍 Security audit
-      run: dotnet list package --vulnerable --include-transitive || true
+      - name: 🔍 Security audit
+        run: dotnet list package --vulnerable --include-transitive || true
 
-    - name: 🛡️ CodeQL Analysis
-      uses: github/codeql-action/init@v3
-      with:
-        languages: csharp
+      - name: 🛡️ CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
 
-    - name: 🏗️ Build for CodeQL
-      run: dotnet build --configuration Release
+      - name: 🏗️ Build for CodeQL
+        run: dotnet build --configuration Release
 
-    - name: 🛡️ Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      - name: 🛡️ Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
 
   # ===== JOB 4: PACKAGE BUILD =====
   package:
@@ -173,85 +173,85 @@ jobs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: 🏗️ Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: 🏗️ Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: 📝 Generate version
-      id: version
-      run: |
-        if [ "${{ github.ref }}" = "refs/heads/master" ]; then
-          VERSION="1.0.${{ github.run_number }}"
-        else
-          VERSION="1.0.${{ github.run_number }}-dev"
-        fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Generated version: $VERSION"
+      - name: 📝 Generate version
+        id: version
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/master" ]; then
+            VERSION="1.0.${{ github.run_number }}"
+          else
+            VERSION="1.0.${{ github.run_number }}-dev"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
 
-    - name: 📦 Restore dependencies
-      run: dotnet restore
+      - name: 📦 Restore dependencies
+        run: dotnet restore
 
-    - name: 🏗️ Build packages
-      run: |
-        dotnet pack src/NSI.Core/NSI.Core.csproj \
-          --configuration Release \
-          --no-restore \
-          --output ./packages \
-          -p:PackageVersion=${{ steps.version.outputs.version }} \
-          -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
-          -p:RepositoryCommit=${{ github.sha }}
+      - name: 🏗️ Build packages
+        run: |
+          dotnet pack src/NSI.Core/NSI.Core.csproj \
+            --configuration Release \
+            --no-restore \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.version }} \
+            -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack src/NSI.Domains/NSI.Domains.csproj \
-          --configuration Release \
-          --no-restore \
-          --output ./packages \
-          -p:PackageVersion=${{ steps.version.outputs.version }} \
-          -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
-          -p:RepositoryCommit=${{ github.sha }}
+          dotnet pack src/NSI.Domains/NSI.Domains.csproj \
+            --configuration Release \
+            --no-restore \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.version }} \
+            -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack src/NSI.AspNetCore/NSI.AspNetCore.csproj \
-          --configuration Release \
-          --no-restore \
-          --output ./packages \
-          -p:PackageVersion=${{ steps.version.outputs.version }} \
-          -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
-          -p:RepositoryCommit=${{ github.sha }}
+          dotnet pack src/NSI.AspNetCore/NSI.AspNetCore.csproj \
+            --configuration Release \
+            --no-restore \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.version }} \
+            -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack src/NSI.EntityFramework/NSI.EntityFramework.csproj \
-          --configuration Release \
-          --no-restore \
-          --output ./packages \
-          -p:PackageVersion=${{ steps.version.outputs.version }} \
-          -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
-          -p:RepositoryCommit=${{ github.sha }}
+          dotnet pack src/NSI.EntityFramework/NSI.EntityFramework.csproj \
+            --configuration Release \
+            --no-restore \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.version }} \
+            -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack src/NSI.Json/NSI.Json.csproj \
-          --configuration Release \
-          --no-restore \
-          --output ./packages \
-          -p:PackageVersion=${{ steps.version.outputs.version }} \
-          -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
-          -p:RepositoryCommit=${{ github.sha }}
+          dotnet pack src/NSI.Json/NSI.Json.csproj \
+            --configuration Release \
+            --no-restore \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.version }} \
+            -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -p:RepositoryCommit=${{ github.sha }}
 
-        dotnet pack src/NSI.Testing/NSI.Testing.csproj \
-          --configuration Release \
-          --no-restore \
-          --output ./packages \
-          -p:PackageVersion=${{ steps.version.outputs.version }} \
-          -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
-          -p:RepositoryCommit=${{ github.sha }}
-    - name: 📤 Upload packages
-      uses: actions/upload-artifact@v4
-      with:
-        name: nuget-packages-${{ steps.version.outputs.version }}
-        path: ./packages/*.nupkg
-        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+          dotnet pack src/NSI.Testing/NSI.Testing.csproj \
+            --configuration Release \
+            --no-restore \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.version }} \
+            -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -p:RepositoryCommit=${{ github.sha }}
+      - name: 📤 Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-${{ steps.version.outputs.version }}
+          path: ./packages/*.nupkg
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
   # ===== JOB 5: BENCHMARKS =====
   benchmarks:
@@ -262,31 +262,31 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
 
-    - name: 🏗️ Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: 🏗️ Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: 📦 Restore dependencies
-      run: dotnet restore
+      - name: 📦 Restore dependencies
+        run: dotnet restore
 
-    - name: 🏗️ Build benchmarks
-  run: dotnet build benchmarks/NSI.Testing.Benchmarks/NSI.Testing.Benchmarks.csproj --configuration Release
+      - name: 🏗️ Build benchmarks
+        run: dotnet build benchmarks/NSI.Testing.Benchmarks/NSI.Testing.Benchmarks.csproj --configuration Release
 
-    - name: ⚡ Run benchmarks
-      run: |
-        cd benchmarks/NSI.Testing.Benchmarks
-        dotnet run --configuration Release --no-build > benchmark-results.txt 2>&1
+      - name: ⚡ Run benchmarks
+        run: |
+          cd benchmarks/NSI.Testing.Benchmarks
+          dotnet run --configuration Release --no-build > benchmark-results.txt 2>&1
 
-    - name: 📤 Upload benchmark results
-      uses: actions/upload-artifact@v4
-      with:
-        name: benchmark-results-${{ github.run_number }}
-        path: benchmarks/NSI.Testing.Benchmarks/benchmark-results.txt
-        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+      - name: 📤 Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_number }}
+          path: benchmarks/NSI.Testing.Benchmarks/benchmark-results.txt
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
   # ===== JOB 6: QUALITY GATE =====
   quality-gate:
@@ -297,42 +297,42 @@ jobs:
     timeout-minutes: 5
 
     steps:
-    - name: 📊 Check quality requirements
-      run: |
-        echo "Checking CI results..."
+      - name: 📊 Check quality requirements
+        run: |
+          echo "Checking CI results..."
 
-        # Check if tests passed
-        if [ "${{ needs.test.result }}" != "success" ]; then
-          echo "❌ Tests failed"
-          exit 1
-        fi
-
-        # Check if security scan passed
-        if [ "${{ needs.security.result }}" != "success" ]; then
-          echo "❌ Security scan failed"
-          exit 1
-        fi
-
-        # Check if package build passed (only for master/develop)
-        if [ "${{ github.ref }}" = "refs/heads/master" ] || [ "${{ github.ref }}" = "refs/heads/develop" ]; then
-          if [ "${{ needs.package.result }}" != "success" ]; then
-            echo "❌ Package build failed"
+          # Check if tests passed
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "❌ Tests failed"
             exit 1
           fi
-        fi
 
-        echo "✅ All quality checks passed!"
+          # Check if security scan passed
+          if [ "${{ needs.security.result }}" != "success" ]; then
+            echo "❌ Security scan failed"
+            exit 1
+          fi
 
-    - name: 📋 Summary
-      run: |
-        echo "## 🎉 Pipeline Summary" >> $GITHUB_STEP_SUMMARY
-        echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
-        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-        echo "| Code Validation | ${{ needs.validate.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Tests | ${{ needs.test.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Security | ${{ needs.security.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-        if [ "${{ github.ref }}" = "refs/heads/master" ] || [ "${{ github.ref }}" = "refs/heads/develop" ]; then
-          echo "| Package Build | ${{ needs.package.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Version | ${{ needs.package.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
-        fi
+          # Check if package build passed (only for master/develop)
+          if [ "${{ github.ref }}" = "refs/heads/master" ] || [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            if [ "${{ needs.package.result }}" != "success" ]; then
+              echo "❌ Package build failed"
+              exit 1
+            fi
+          fi
+
+          echo "✅ All quality checks passed!"
+
+      - name: 📋 Summary
+        run: |
+          echo "## 🎉 Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Validation | ${{ needs.validate.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ${{ needs.test.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ needs.security.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.ref }}" = "refs/heads/master" ] || [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            echo "| Package Build | ${{ needs.package.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Version | ${{ needs.package.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          fi
         

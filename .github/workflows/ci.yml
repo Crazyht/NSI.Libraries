@@ -246,13 +246,12 @@ jobs:
           -p:PackageVersion=${{ steps.version.outputs.version }} \
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
           -p:RepositoryCommit=${{ github.sha }}
-
-      - name: 📤 Upload packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuget-packages-${{ steps.version.outputs.version }}
-          path: ./packages/*.nupkg
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+    - name: 📤 Upload packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages-${{ steps.version.outputs.version }}
+        path: ./packages/*.nupkg
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
   # ===== JOB 5: BENCHMARKS =====
   benchmarks:

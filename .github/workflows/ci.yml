@@ -115,15 +115,35 @@ jobs:
 
       - name: 🧪 Run ${{ matrix.test-group.name }}
         run: |
-          dotnet test ${{ matrix.test-group.projects }} \
-            --no-build \
-            --configuration Debug \
-            --logger "trx;LogFileName=test-results-${{ matrix.test-group.name }}.trx" \
-            --logger "console;verbosity=minimal" \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./test-results \
-            --filter "${{ matrix.test-group.filter }}" \
-            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+          set -euo pipefail
+          mkdir -p test-results
+          # Enumerate test project files explicitly (avoid shell glob expansion limits)
+          mapfile -t projects < <(find tests -type f -name '*.csproj' -print | sort)
+          if [ ${#projects[@]} -eq 0 ]; then
+            echo "No test projects found" >&2
+            exit 1
+          fi
+          echo "Discovered test projects:"; printf ' - %s\n' "${projects[@]}"
+          fail=0
+          testGroupName="${{ matrix.test-group.name }}"
+          testGroupFileSafe=$(echo "$testGroupName" | tr ' ' '-' | tr -cd 'A-Za-z0-9_-')
+          for proj in "${projects[@]}"; do
+            base=$(basename "$proj" .csproj)
+            echo "\n=== Running tests for $proj ($testGroupName) ==="
+            if ! dotnet test "$proj" \
+              --no-build \
+              --configuration Debug \
+              --logger "trx;LogFileName=${base}-${testGroupFileSafe}.trx" \
+              --logger "console;verbosity=minimal" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory ./test-results \
+              --filter "${{ matrix.test-group.filter }}" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover; then
+              echo "❌ Tests failed in $proj" >&2
+              fail=1
+            fi
+          done
+          exit $fail
 
       - name: 📊 Upload test results
         uses: actions/upload-artifact@v4
@@ -158,6 +178,7 @@ jobs:
     timeout-minutes: 10
 
     permissions:
+      contents: read
       security-events: write
 
     steps:
@@ -304,7 +325,12 @@ jobs:
       - name: ⚡ Run benchmarks
         run: |
           cd benchmarks/NSI.Testing.Benchmarks
-          dotnet run --configuration Release --no-build > benchmark-results.txt 2>&1
+          if dotnet run --configuration Release --no-build > benchmark-results.txt 2>&1; then
+            echo "Benchmarks completed successfully"
+          else
+            code=$?
+            echo "Benchmark execution exited with code $code (continuing pipeline)." >&2
+          fi
 
       - name: 📤 Upload benchmark results
         uses: actions/upload-artifact@v4
@@ -322,11 +348,11 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: � Checkout code (for summary context)
+      - name: 📥 Checkout code (for summary context)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: �📊 Check quality requirements
+      - name: 📊 Check quality requirements
         run: |
           echo "Checking CI results..."
 

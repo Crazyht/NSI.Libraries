@@ -178,6 +178,7 @@ jobs:
     timeout-minutes: 10
 
     permissions:
+      actions: read
       contents: read
       security-events: write
 
@@ -203,6 +204,14 @@ jobs:
 
       - name: 🏗️ Build for CodeQL
         run: dotnet build --configuration Release
+
+      - name: 🔎 Post-build diagnostics
+        if: always()
+        run: |
+          echo "Listing built DLLs (bin/Release):"
+          find . -path '*bin/Release*' -name '*.dll' | head -n 50
+          echo "CodeQL database directory contents:"
+          ls -R ./codeql-databases || true
 
       - name: 🛡️ Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

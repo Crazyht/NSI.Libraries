@@ -231,6 +231,7 @@ namespace NSI.Json.Tests {
     }
     // Add these record definitions to your test class
     internal sealed record IntegerId(int Value): StronglyTypedId<IntegerId, int>(Value);
+
     internal sealed record StringId(string Value): StronglyTypedId<StringId, string>(Value);
 
     internal sealed class IntegerIdContainer {

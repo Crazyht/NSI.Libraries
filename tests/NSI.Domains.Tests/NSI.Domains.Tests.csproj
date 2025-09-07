@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\..\Src\NSI.Domains\NSI.Domains.csproj" />
+  <ProjectReference Include="..\..\src\NSI.Domains\NSI.Domains.csproj" />
   </ItemGroup>
 
   <ItemGroup>

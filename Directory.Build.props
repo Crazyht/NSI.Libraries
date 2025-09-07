@@ -24,6 +24,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+  <!-- Prevent SDK from probing non-existent Windows Visual Studio fallback package folder -->
+  <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
 
     <!-- Optimisations de performance -->
     <!--<Optimize>true</Optimize>

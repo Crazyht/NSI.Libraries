@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\..\Src\NSI.EntityFramework\NSI.EntityFramework.csproj" />
+  <ProjectReference Include="..\..\src\NSI.EntityFramework\NSI.EntityFramework.csproj" />
   </ItemGroup>
 
   <ItemGroup>

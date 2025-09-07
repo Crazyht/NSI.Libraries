@@ -208,7 +208,9 @@ namespace NSI.EntityFramework.Tests {
 
   }
   internal sealed record DecimalId(decimal Value): StronglyTypedId<DecimalId, decimal>(Value);
+
   internal sealed record DateId(DateTime Value): StronglyTypedId<DateId, DateTime>(Value);
+
   // Add at class level
   internal struct CustomValueType(int value): IEquatable<CustomValueType> {
     public int Value { get; } = value;
@@ -223,8 +225,11 @@ namespace NSI.EntityFramework.Tests {
 
   internal sealed record CustomTypeId(CustomValueType Value)
       : StronglyTypedId<CustomTypeId, CustomValueType>(Value);
+
   // Common ID types for testing
   internal sealed record IntegerId(int Value): StronglyTypedId<IntegerId, int>(Value);
+
   internal sealed record StringId(string Value): StronglyTypedId<StringId, string>(Value);
+
   internal sealed record GuidId(Guid Value): StronglyTypedId<GuidId, Guid>(Value);
 }

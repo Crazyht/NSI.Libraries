@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\..\Src\NSI.Json\NSI.Json.csproj" />
+  <ProjectReference Include="..\..\src\NSI.Json\NSI.Json.csproj" />
   </ItemGroup>
 
   <ItemGroup>

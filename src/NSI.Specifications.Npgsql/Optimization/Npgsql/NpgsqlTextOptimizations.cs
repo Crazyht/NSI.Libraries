@@ -1,9 +1,7 @@
-using System; // required for Func<>
-using System.Globalization; // required for CultureInfo.InvariantCulture
-#pragma warning disable S1128 // False positive: using is required for CultureInfo
+using System.Globalization;
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using Npgsql.EntityFrameworkCore.PostgreSQL;
 using NSI.Specifications.Filtering.Text;
 using NSI.Specifications.Optimization;
 
@@ -14,7 +12,8 @@ namespace NSI.Specifications.Npgsql.Optimization.Npgsql;
 /// </summary>
 public static class NpgsqlTextOptimizations {
   // Cached MethodInfo for Npgsql ILIKE extension (compile-time safe, avoids repeated reflection lookups)
-  private static readonly System.Reflection.MethodInfo ILikeMethod = ((Func<DbFunctions, string, string, bool>)NpgsqlDbFunctionsExtensions.ILike).Method;
+  private static readonly MethodInfo ILikeMethod = ((Func<DbFunctions, string, string, bool>)NpgsqlDbFunctionsExtensions.ILike).Method;
+
   /// <summary>
   /// Registers all PostgreSQL (Npgsql) text optimizations.
   /// </summary>
@@ -164,7 +163,8 @@ public static class NpgsqlTextOptimizations {
       }
       return false;
     }
-    private static bool SamePath(MemberExpression a, MemberExpression b) => a.ToString().Equals(b.ToString(), StringComparison.Ordinal);
+    private static bool SamePath(MemberExpression a, MemberExpression b)
+      => a.ToString().Equals(b.ToString(), StringComparison.Ordinal);
     /// <summary>
     /// Escapes a raw user term for safe inclusion inside an ILIKE pattern.
     /// </summary>
@@ -210,8 +210,4 @@ public static class NpgsqlTextOptimizations {
     public override Type SpecificationType => typeof(EndsWithSpecification<>);
     protected override string PatternFormat => "%{0}";
   }
-
-  // Removed old TryBuild (logic moved into TextOptimizationBase)
-
-  // Helper methods moved into TextOptimizationBase to satisfy analyzer.
 }

@@ -61,7 +61,6 @@
   <ItemGroup Condition="'$(MSBuildProjectExtension)' != '.esproj' AND !$(MSBuildProjectName.EndsWith('.Tests')) AND !$(MSBuildProjectName.EndsWith('.Benchmarks'))">
     <!-- Configuration InternalsVisibleTo pour les tests -->
     <InternalsVisibleTo Include="$(AssemblyName).Tests" />
-    <InternalsVisibleTo Include="BlondSports.Admin.Api.Integration.Tests" />
   </ItemGroup>
 
   <!-- ===== CONFIGURATION PAR TYPE DE PROJET ===== -->

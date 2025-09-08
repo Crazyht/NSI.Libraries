@@ -200,9 +200,9 @@ dotnet_naming_rule.sanity_check_uncovered_field_case_rule.severity=error
 # - Constructors, Properties, Events, Methods
 #   https://docs.microsoft.com/dotnet/standard/design-guidelines/names-of-type-members
 dotnet_naming_symbols.element_group.applicable_kinds=namespace, class, enum, struct, delegate, event, method, property
-dotton_naming_rule.element_rule.symbols=element_group
-dotton_naming_rule.element_rule.style=pascal_case_style
-dotton_naming_rule.element_rule.severity=warning
+dotnet_naming_rule.element_rule.symbols=element_group
+dotnet_naming_rule.element_rule.style=pascal_case_style
+dotnet_naming_rule.element_rule.severity=warning
 
 # Interfaces use PascalCase and are prefixed with uppercase 'I'
 # https://docs.microsoft.com/dotnet/standard/design-guidelines/names-of-classes-structs-and-interfaces

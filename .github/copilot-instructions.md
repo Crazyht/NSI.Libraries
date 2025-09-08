@@ -151,6 +151,11 @@ This is the **NSI.Libraries** repository by CrazyHT, containing .NET libraries w
 - **Space around binary operators**: `a + b`
 - **No space before/after dots**: `object.Method()`
 - **Space after commas**: `Method(a, b, c)`
+- **Inheritance clause spacing**: **No space before colon, space after colon**
+  - ✅ **Correct**: `public interface ICommand<TResponse>: IRequest<TResponse>`
+  - ✅ **Correct**: `public class MyClass: BaseClass`
+  - ❌ **Incorrect**: `public interface ICommand<TResponse> : IRequest<TResponse>`
+  - ❌ **Incorrect**: `public class MyClass : BaseClass`
 
 #### Brace & Line Break Rules
 - **Opening braces**: Same line (`none` style)
@@ -492,6 +497,11 @@ Add this helper **once** in the Infrastructure (or Common) project :
 using System.Linq.Expressions;
 using System.Reflection;
 
+namespace NSI.Core.Common;
+
+/// <summary>
+/// High-performance MethodInfo resolution helper using expressions.
+/// </summary>
 public static class MI {
   public static MethodInfo Of(Expression<Action> e) =>
     ((MethodCallExpression)e.Body).Method;
@@ -806,6 +816,29 @@ public class ExampleClass<T> { }
 public async Task<Result<TResult>> ProcessAsync<TResult>(...) { }
 ```
 
+**Property Documentation Pattern:**
+```csharp
+/// <summary>
+/// Gets or sets the <see cref="User"/> associated with the comment.
+/// </summary>
+/// <remarks>
+/// Navigational property for joining with the <see cref="User"/> entity.
+/// </remarks>
+public User? Author { get; set; }
+```
+
+**Generic Parameter Documentation Pattern:**
+```csharp
+/// <summary>
+/// A validator that ensures a property's value is required (not null or empty).
+/// </summary>
+/// <typeparam name="T">The type of object being validated.</typeparam>
+/// <remarks>
+/// This rule is typically used to annotate required properties in data models.
+/// </remarks>
+public sealed class RequiredRule<T>: IValidationRule<T> { }
+```
+
 #### **Key Documentation Elements**
 
 **1. Summary Section (`<summary>`)**
@@ -902,7 +935,7 @@ public static Result<T> Success<T>(T value) => new(value);
 /// </list>
 /// </para>
 /// </remarks>
-public sealed class ExampleRule<T> : IValidationRule<T> { }
+public sealed class ExampleRule<T>: IValidationRule<T> { }
 ```
 
 #### **Documentation Quality Standards**
@@ -1463,5 +1496,4 @@ public void DoSomething() { }
 - ✅ **Specific exceptions**: No catch (Exception) except Result pattern
 - ✅ **Exception enrichment**: Context added to exceptions
 - ✅ **No swallowing**: Exceptions not suppressed without logging
-- ✅ **Cancellation handled**: OperationCanceledException propagated
 - ✅ **Cancellation handled**: OperationCanceledException propagated

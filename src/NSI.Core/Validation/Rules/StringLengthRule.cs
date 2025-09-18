@@ -4,34 +4,50 @@ using NSI.Core.Validation.Abstractions;
 namespace NSI.Core.Validation.Rules;
 
 /// <summary>
-/// Validates that a string property length is within specified bounds.
+/// Validates that a string property's length lies within inclusive [min, max] boundaries.
 /// </summary>
-/// <typeparam name="T">The type of object being validated.</typeparam>
+/// <typeparam name="T">Parent object type.</typeparam>
 /// <remarks>
 /// <para>
-/// This validation rule checks that a string property's length falls within
-/// the specified minimum and maximum character limits.
+/// Applies length constraints only when the target string is non-null. A null value is treated as
+/// success so this rule can be composed with <see cref="RequiredRule{T}"/> when presence is
+/// mandatory. Both <c>minLength</c> and <c>maxLength</c> are inclusive.
 /// </para>
 /// <para>
-/// Key behaviors:
+/// Semantics:
 /// <list type="bullet">
-///   <item><description>Null strings are ignored (consider using <see cref="RequiredRule{T}"/> for null validation)</description></item>
-///   <item><description>Empty strings pass validation if minLength is 0</description></item>
-///   <item><description>Both minimum and maximum bounds are inclusive</description></item>
+///   <item><description>Null value => success (no errors).</description></item>
+///   <item><description>Length &lt; min => emits <c>TOO_SHORT</c>.</description></item>
+///   <item><description>Length &gt; max => emits <c>TOO_LONG</c>.</description></item>
+///   <item><description>0 ≤ min ≤ max enforced at construction; otherwise throws.</description></item>
+///   <item><description>At most one error emitted (cannot be simultaneously too short and too long).</description></item>
 /// </list>
 /// </para>
 /// <para>
-/// Example usage:
-/// <code>
-/// // Validate that Username is between 3 and 50 characters
-/// var usernameRule = new StringLengthRule&lt;User&gt;(u => u.Username, 3, 50);
-/// var errors = usernameRule.Validate(user, validationContext);
-/// 
-/// // Validate that Description doesn't exceed 1000 characters
-/// var descriptionRule = new StringLengthRule&lt;Product&gt;(p => p.Description, 0, 1000);
-/// </code>
+/// Guidelines:
+/// <list type="bullet">
+///   <item><description>Combine with <see cref="RequiredRule{T}"/> to disallow null.</description></item>
+///   <item><description>Use domain constants for shared limits (e.g. <c>MaxNameLength</c>).</description></item>
+///   <item><description>Prefer tighter bounds for user inputs to mitigate abuse.</description></item>
+///   <item><description>Localize only the message externally; keep stable error codes.</description></item>
+/// </list>
+/// </para>
+/// <para>
+/// Thread-safety: Immutable after construction; safe for concurrent reuse across threads.
+/// </para>
+/// <para>
+/// Performance: Single delegate invocation + one length retrieval; success path allocates nothing.
+/// Early short-circuit prevents unnecessary upper bound comparison.
 /// </para>
 /// </remarks>
+/// <example>
+/// <code>
+/// var rule = new StringLengthRule&lt;User&gt;(u => u.Username, 3, 50);
+/// foreach (var e in rule.Validate(user, context)) {
+///   Console.WriteLine($"{e.PropertyName}: {e.ErrorMessage}");
+/// }
+/// </code>
+/// </example>
 public sealed class StringLengthRule<T>: IValidationRule<T> {
   private readonly Func<T, string?> _PropertyAccessor;
   private readonly string _PropertyName;
@@ -39,22 +55,13 @@ public sealed class StringLengthRule<T>: IValidationRule<T> {
   private readonly int _MaxLength;
 
   /// <summary>
-  /// Initializes a new instance of the <see cref="StringLengthRule{T}"/> class.
+  /// Creates the rule for the specified string property.
   /// </summary>
-  /// <param name="propertyExpression">Expression to access the string property.</param>
-  /// <param name="minLength">Minimum allowed length (inclusive, defaults to 0).</param>
-  /// <param name="maxLength">Maximum allowed length (inclusive, defaults to int.MaxValue).</param>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="propertyExpression"/> is null.
-  /// </exception>
-  /// <exception cref="ArgumentOutOfRangeException">
-  /// Thrown when <paramref name="minLength"/> is negative or when 
-  /// <paramref name="maxLength"/> is less than <paramref name="minLength"/>.
-  /// </exception>
-  /// <remarks>
-  /// The property expression should be a simple member access expression
-  /// (e.g., <c>x => x.PropertyName</c>) that returns a string value.
-  /// </remarks>
+  /// <param name="propertyExpression">Simple member access expression (e.g. <c>x => x.Name</c>).</param>
+  /// <param name="minLength">Inclusive lower bound (default 0).</param>
+  /// <param name="maxLength">Inclusive upper bound (default <see cref="int.MaxValue"/>).</param>
+  /// <exception cref="ArgumentNullException">Thrown when <paramref name="propertyExpression"/> is null.</exception>
+  /// <exception cref="ArgumentOutOfRangeException">Thrown when bounds are invalid (negative min or max &lt; min).</exception>
   public StringLengthRule(
     Expression<Func<T, string?>> propertyExpression,
     int minLength = 0,
@@ -64,49 +71,34 @@ public sealed class StringLengthRule<T>: IValidationRule<T> {
     ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
 
     _PropertyAccessor = propertyExpression.Compile();
-    _PropertyName = GetPropertyName(propertyExpression);
+    _PropertyName = GetPropertyName(propertyExpression.Body);
     _MinLength = minLength;
     _MaxLength = maxLength;
   }
 
   /// <inheritdoc/>
-  /// <remarks>
-  /// <para>
-  /// This method validates that the string property's length is within the specified bounds.
-  /// It returns validation errors when:
-  /// <list type="bullet">
-  ///   <item><description>The string's length is less than the minimum allowed length</description></item>
-  ///   <item><description>The string's length exceeds the maximum allowed length</description></item>
-  /// </list>
-  /// </para>
-  /// <para>
-  /// Null strings are ignored by this validation. To validate that a string is not null,
-  /// use the <see cref="RequiredRule{T}"/> in conjunction with this rule.
-  /// </para>
-  /// </remarks>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="instance"/> or <paramref name="context"/> is null.
-  /// </exception>
   public IEnumerable<IValidationError> Validate(T instance, IValidationContext context) {
     ArgumentNullException.ThrowIfNull(instance);
     ArgumentNullException.ThrowIfNull(context);
 
     var value = _PropertyAccessor(instance);
-
     if (value is null) {
-      yield break;
+      yield break; // Null treated as valid; compose with RequiredRule if needed
     }
 
-    if (value.Length < _MinLength) {
+    var length = value.Length;
+
+    if (length < _MinLength) {
       yield return new ValidationError(
         "TOO_SHORT",
         $"{_PropertyName} must be at least {_MinLength} characters long.",
         _PropertyName,
         _MinLength
       );
+      yield break; // Cannot also be too long
     }
 
-    if (value.Length > _MaxLength) {
+    if (length > _MaxLength) {
       yield return new ValidationError(
         "TOO_LONG",
         $"{_PropertyName} must not exceed {_MaxLength} characters.",
@@ -116,16 +108,9 @@ public sealed class StringLengthRule<T>: IValidationRule<T> {
     }
   }
 
-  /// <summary>
-  /// Extracts the property name from an expression.
-  /// </summary>
-  /// <param name="expression">The expression to analyze.</param>
-  /// <returns>The name of the property accessed by the expression.</returns>
-  /// <exception cref="ArgumentException">
-  /// Thrown when the expression does not represent a simple property access.
-  /// </exception>
-  private static string GetPropertyName(Expression<Func<T, string?>> expression) =>
-    expression.Body is MemberExpression member
-      ? member.Member.Name
-      : throw new ArgumentException("Invalid property expression");
+  private static string GetPropertyName(Expression expression) => expression switch {
+    MemberExpression m => m.Member.Name,
+    UnaryExpression { Operand: MemberExpression m } => m.Member.Name, // Handles conversions
+    _ => throw new ArgumentException("Property expression must be a simple member access", nameof(expression))
+  };
 }

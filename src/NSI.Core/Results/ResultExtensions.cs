@@ -1,33 +1,47 @@
 using NSI.Core.Validation.Abstractions;
 
 namespace NSI.Core.Results;
+
 /// <summary>
-/// Provides extension methods for working with Result types.
+/// Provides functional-style extension helpers for working with <see cref="Result{T}"/> instances.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This class contains extension methods that provide additional functionality
-/// for the Result pattern, including LINQ-style operations and specialized
-/// error handling methods.
+/// Adds LINQ-like filtering, conditional tapping, validation extraction and nullable bridging
+/// utilities on top of the core Result pattern without introducing additional allocations in
+/// the success path.
 /// </para>
+/// <para>
+/// Performance: All helpers short‑circuit on failure and avoid delegate invocation unless needed.
+/// The validation extraction reuses a cached empty list to avoid repeated allocations.
+/// </para>
+/// <para>Thread-safety: All methods are pure (except user supplied actions) and therefore thread-safe.</para>
 /// </remarks>
 public static class ResultExtensions {
+  private static readonly IReadOnlyList<IValidationError> EmptyValidationErrors =
+    new List<IValidationError>(0).AsReadOnly();
+
   /// <summary>
-  /// Filters a successful result based on a predicate, converting to failure if the predicate is not satisfied.
+  /// Filters a successful result; converts to failure if <paramref name="predicate"/> returns false.
   /// </summary>
-  /// <typeparam name="T">The type of the result value.</typeparam>
-  /// <param name="result">The result to filter.</param>
-  /// <param name="predicate">The predicate to test the value against.</param>
-  /// <param name="errorFactory">Factory function to create the error if predicate fails.</param>
-  /// <returns>The original result if successful and predicate passes, otherwise a failure result.</returns>
-  /// <exception cref="ArgumentNullException">Thrown when predicate or errorFactory is null.</exception>
+  /// <typeparam name="T">Underlying success value type.</typeparam>
+  /// <param name="result">Source result.</param>
+  /// <param name="predicate">Predicate executed when <paramref name="result"/> is successful.</param>
+  /// <param name="errorFactory">Factory producing the failure error when predicate fails.</param>
+  /// <returns>
+  /// Original success when predicate passes; failure produced by <paramref name="errorFactory"/>
+  /// when predicate fails; original failure unchanged.
+  /// </returns>
+  /// <exception cref="ArgumentNullException">Predicate or <paramref name="errorFactory"/> is null.</exception>
   /// <example>
   /// <code>
-  /// var result = Result.Success(5)
-  ///   .Where(x => x > 0, () => ResultError.BusinessRule("NEGATIVE_VALUE", "Value must be positive"));
+  /// var positive = Result.Success(5)
+  ///   .Where(x => x > 0, () => ResultError.BusinessRule("NEGATIVE", "Value must be positive"));
   /// </code>
   /// </example>
-  public static Result<T> Where<T>(this Result<T> result, Func<T, bool> predicate, Func<ResultError> errorFactory) {
+  public static Result<T> Where<T>(this Result<T> result,
+    Func<T, bool> predicate,
+    Func<ResultError> errorFactory) {
     ArgumentNullException.ThrowIfNull(predicate);
     ArgumentNullException.ThrowIfNull(errorFactory);
 
@@ -39,104 +53,69 @@ public static class ResultExtensions {
   }
 
   /// <summary>
-  /// Checks if the result is a failure of a specific error type.
+  /// Returns true when the result is a failure whose <see cref="ResultError.Type"/> equals
+  /// <paramref name="errorType"/>.
   /// </summary>
-  /// <typeparam name="T">The type of the result value.</typeparam>
-  /// <param name="result">The result to check.</param>
-  /// <param name="errorType">The error type to check for.</param>
-  /// <returns><c>true</c> if the result is a failure of the specified type; otherwise, <c>false</c>.</returns>
-  /// <example>
-  /// <code>
-  /// if (result.IsFailureOfType(ErrorType.NotFound)) {
-  ///   // Handle not found error
-  /// }
-  /// </code>
-  /// </example>
-  public static bool IsFailureOfType<T>(this Result<T> result, ErrorType errorType) =>
-    result.IsFailure && result.Error.IsOfType(errorType);
+  /// <typeparam name="T">Underlying value type.</typeparam>
+  /// <param name="result">Source result.</param>
+  /// <param name="errorType">Error type to test.</param>
+  public static bool IsFailureOfType<T>(this Result<T> result, ErrorType errorType)
+    => result.IsFailure && result.Error.IsOfType(errorType);
 
   /// <summary>
-  /// Executes an action if the result is a failure of a specific type.
+  /// Executes <paramref name="action"/> when the result is a failure of <paramref name="errorType"/>.
   /// </summary>
-  /// <typeparam name="T">The type of the result value.</typeparam>
-  /// <param name="result">The result to check.</param>
-  /// <param name="errorType">The error type to check for.</param>
-  /// <param name="action">The action to execute if the error type matches.</param>
-  /// <returns>The original result.</returns>
-  /// <exception cref="ArgumentNullException">Thrown when action is null.</exception>
-  /// <example>
-  /// <code>
-  /// var result = someOperation()
-  ///   .TapErrorOfType(ErrorType.NotFound, error => _logger.LogWarning("Resource not found: {Error}", error))
-  ///   .TapErrorOfType(ErrorType.Database, error => _logger.LogError("Database error: {Error}", error));
-  /// </code>
-  /// </example>
-  public static Result<T> TapErrorOfType<T>(this Result<T> result, ErrorType errorType, Action<ResultError> action) {
+  /// <typeparam name="T">Underlying value type.</typeparam>
+  /// <param name="result">Source result.</param>
+  /// <param name="errorType">Target error type.</param>
+  /// <param name="action">Side-effect action receiving the matching error.</param>
+  /// <returns>Original <paramref name="result"/> (for chaining).</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="action"/> is null.</exception>
+  public static Result<T> TapErrorOfType<T>(this Result<T> result,
+    ErrorType errorType,
+    Action<ResultError> action) {
     ArgumentNullException.ThrowIfNull(action);
-
     if (result.IsFailureOfType(errorType)) {
       action(result.Error);
     }
-
     return result;
   }
 
   /// <summary>
-  /// Gets the validation errors from a result if it's a validation failure.
+  /// Returns validation errors when the result is a validation failure; otherwise an empty list.
   /// </summary>
-  /// <typeparam name="T">The type of the result value.</typeparam>
-  /// <param name="result">The result to extract validation errors from.</param>
-  /// <returns>The validation errors if this is a validation failure; otherwise, an empty list.</returns>
-  /// <example>
-  /// <code>
-  /// var validationErrors = result.GetValidationErrors();
-  /// foreach (var error in validationErrors) {
-  ///   Console.WriteLine($"{error.FieldName}: {error.Message}");
-  /// }
-  /// </code>
-  /// </example>
+  /// <typeparam name="T">Underlying value type.</typeparam>
+  /// <param name="result">Source result.</param>
   public static IReadOnlyList<IValidationError> GetValidationErrors<T>(this Result<T> result)
     => result.IsFailure && result.Error.HasValidationErrors
       ? result.Error.ValidationErrors!
-      : new List<IValidationError>().AsReadOnly();
+      : EmptyValidationErrors;
 
   /// <summary>
-  /// Converts a nullable value to a Result, treating null as a failure.
+  /// Converts a reference type value to a result; null becomes failure produced by
+  /// <paramref name="errorFactory"/>.
   /// </summary>
-  /// <typeparam name="T">The type of the nullable value.</typeparam>
-  /// <param name="value">The nullable value to convert.</param>
-  /// <param name="errorFactory">Factory function to create the error if value is null.</param>
-  /// <returns>A successful result if value is not null; otherwise, a failure result.</returns>
-  /// <exception cref="ArgumentNullException">Thrown when errorFactory is null.</exception>
-  /// <example>
-  /// <code>
-  /// string? nullableString = GetStringOrNull();
-  /// var result = nullableString.ToResult(() => ResultError.NotFound("STRING_NULL", "String value is null"));
-  /// </code>
-  /// </example>
+  /// <typeparam name="T">Reference type.</typeparam>
+  /// <param name="value">Value that may be null.</param>
+  /// <param name="errorFactory">Factory creating failure error when <paramref name="value"/> is null.</param>
+  /// <returns>Success when not null; failure otherwise.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="errorFactory"/> is null.</exception>
   public static Result<T> ToResult<T>(this T? value, Func<ResultError> errorFactory) where T : class {
     ArgumentNullException.ThrowIfNull(errorFactory);
-
     return value is not null ? Result.Success(value) : Result.Failure<T>(errorFactory());
   }
 
   /// <summary>
-  /// Converts a nullable value type to a Result, treating null as a failure.
+  /// Converts a nullable value type to a result; null becomes failure produced by
+  /// <paramref name="errorFactory"/>.
   /// </summary>
-  /// <typeparam name="T">The type of the nullable value.</typeparam>
-  /// <param name="value">The nullable value to convert.</param>
-  /// <param name="errorFactory">Factory function to create the error if value is null.</param>
-  /// <returns>A successful result if value has a value; otherwise, a failure result.</returns>
-  /// <exception cref="ArgumentNullException">Thrown when errorFactory is null.</exception>
-  /// <example>
-  /// <code>
-  /// int? nullableInt = GetIntOrNull();
-  /// var result = nullableInt.ToResult(() => ResultError.NotFound("INT_NULL", "Integer value is null"));
-  /// </code>
-  /// </example>
+  /// <typeparam name="T">Value type.</typeparam>
+  /// <param name="value">Nullable value.</param>
+  /// <param name="errorFactory">Factory creating failure error when <paramref name="value"/> is null.</param>
+  /// <returns>Success when <paramref name="value"/> has a value; failure otherwise.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="errorFactory"/> is null.</exception>
   public static Result<T> ToResult<T>(this T? value, Func<ResultError> errorFactory) where T : struct {
     ArgumentNullException.ThrowIfNull(errorFactory);
-
     return value.HasValue ? Result.Success(value.Value) : Result.Failure<T>(errorFactory());
   }
 }

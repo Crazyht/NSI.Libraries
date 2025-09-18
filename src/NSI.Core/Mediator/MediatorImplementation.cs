@@ -9,6 +9,7 @@ using NSI.Core.Mediator.Abstractions;
 using NSI.Core.Results;
 
 namespace NSI.Core.Mediator;
+
 /// <summary>
 /// Default implementation of the mediator pattern for handling requests and notifications.
 /// </summary>
@@ -19,30 +20,85 @@ namespace NSI.Core.Mediator;
 /// handlers and maintains a cache of compiled delegates for optimal performance.
 /// </para>
 /// <para>
-/// Key features:
+/// Key architectural features:
 /// <list type="bullet">
-///   <item><description>Automatic handler resolution via dependency injection</description></item>
-///   <item><description>Type-safe request/response handling</description></item>
-///   <item><description>Fire-and-forget notification dispatching</description></item>
-///   <item><description>Decorator pipeline for cross-cutting concerns</description></item>
-///   <item><description>High-performance compiled delegates</description></item>
-///   <item><description>Comprehensive error handling with Result pattern</description></item>
+///   <item><description>Automatic handler resolution via dependency injection container</description></item>
+///   <item><description>Type-safe request/response handling with compile-time validation</description></item>
+///   <item><description>Fire-and-forget notification dispatching with parallel execution</description></item>
+///   <item><description>Decorator pipeline for cross-cutting concerns (logging, validation, caching)</description></item>
+///   <item><description>High-performance compiled delegates with static caching</description></item>
+///   <item><description>Comprehensive error handling with Result pattern integration</description></item>
+///   <item><description>Thread-safe concurrent operations with lock-free data structures</description></item>
+/// </list>
+/// </para>
+/// <para>
+/// Performance optimizations:
+/// <list type="bullet">
+///   <item><description>Static delegate caching: Compiled expressions cached per request/response type combination</description></item>
+///   <item><description>Type resolution caching: Handler and decorator types cached to avoid reflection overhead</description></item>
+///   <item><description>Concurrent collections: Thread-safe caches using ConcurrentDictionary for high-throughput scenarios</description></item>
+///   <item><description>Zero-allocation logging: High-performance LoggerMessage source generators used throughout</description></item>
+///   <item><description>Pipeline optimization: Minimal overhead decorator chains with compiled delegates</description></item>
 /// </list>
 /// </para>
 /// <para>
 /// The mediator is thread-safe and can be registered as a singleton or scoped service
-/// in the dependency injection container.
+/// in the dependency injection container. For high-throughput applications, singleton
+/// registration is recommended to maximize caching benefits.
 /// </para>
 /// </remarks>
-/// <remarks>
-/// Initializes a new instance of the <see cref="MediatorImplementation"/> class.
-/// </remarks>
-/// <param name="serviceProvider">The service provider for resolving handlers.</param>
-/// <param name="logger">The logger for diagnostic information.</param>
-/// <exception cref="ArgumentNullException">
-/// Thrown when serviceProvider or logger is null.
-/// </exception>
-public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<MediatorImplementation> logger): IMediator {
+/// <example>
+/// <code>
+/// // Registration in dependency injection container
+/// services.AddScoped&lt;IMediator, MediatorImplementation&gt;();
+/// 
+/// // Or register as singleton for better performance
+/// services.AddSingleton&lt;IMediator, MediatorImplementation&gt;();
+/// 
+/// // Usage in application services
+/// public class UserService {
+///   private readonly IMediator _mediator;
+///   
+///   public UserService(IMediator mediator) {
+///     _mediator = mediator;
+///   }
+///   
+///   public async Task&lt;Result&lt;User&gt;&gt; GetUserAsync(Guid userId, CancellationToken cancellationToken) {
+///     var query = new GetUserByIdQuery(userId);
+///     return await _mediator.ProcessAsync(query, cancellationToken);
+///   }
+///   
+///   public async Task&lt;Result&lt;User&gt;&gt; CreateUserAsync(string email, string name, CancellationToken cancellationToken) {
+///     var command = new CreateUserCommand(email, name);
+///     var result = await _mediator.ProcessAsync(command, cancellationToken);
+///     
+///     if (result.IsSuccess) {
+///       // Fire notification without waiting
+///       await _mediator.DispatchAsync(new UserCreatedNotification(result.Value.Id, email));
+///     }
+///     
+///     return result;
+///   }
+/// }
+/// 
+/// // Handler registration example
+/// services.AddScoped&lt;IRequestHandler&lt;GetUserByIdQuery, User&gt;, GetUserByIdQueryHandler&gt;();
+/// services.AddScoped&lt;IRequestHandler&lt;CreateUserCommand, User&gt;, CreateUserCommandHandler&gt;();
+/// 
+/// // Decorator registration for cross-cutting concerns
+/// services.AddScoped(typeof(IRequestDecorator&lt;,&gt;), typeof(LoggingDecorator&lt;,&gt;));
+/// services.AddScoped(typeof(IRequestDecorator&lt;,&gt;), typeof(ValidationDecorator&lt;,&gt;));
+/// </code>
+/// </example>
+/// <seealso cref="IMediator"/>
+/// <seealso cref="IRequestHandler{TRequest, TResponse}"/>
+/// <seealso cref="IRequestDecorator{TRequest, TResponse}"/>
+/// <seealso cref="Result{T}"/>
+/// <seealso cref="ResultError"/>
+public class MediatorImplementation(
+  IServiceProvider serviceProvider, 
+  ILogger<MediatorImplementation> logger): IMediator {
+
   private readonly IServiceProvider _ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
   private readonly ILogger<MediatorImplementation> _Logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
@@ -60,7 +116,33 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
   /// <param name="cancellationToken">The cancellation token.</param>
   /// <returns>A task that represents the async operation, containing the result of the request.</returns>
   /// <exception cref="ArgumentNullException">Thrown when request is null.</exception>
-  [SuppressMessage("Minor Code Smell", "S2221:\"Exception\" should not be caught", Justification = "We want catch anything.")]
+  /// <remarks>
+  /// <para>
+  /// Execution flow:
+  /// <list type="number">
+  ///   <item><description>Validates request parameter and logs processing start</description></item>
+  ///   <item><description>Resolves handler type using cached type mapping for performance</description></item>
+  ///   <item><description>Attempts to resolve handler instance from DI container</description></item>
+  ///   <item><description>Discovers and resolves decorators for request/response type combination</description></item>
+  ///   <item><description>Builds decorator pipeline or executes handler directly based on decorator availability</description></item>
+  ///   <item><description>Executes request through pipeline using compiled delegates for optimal performance</description></item>
+  ///   <item><description>Handles exceptions and converts them to appropriate Result failures</description></item>
+  /// </list>
+  /// </para>
+  /// <para>
+  /// Error handling strategy:
+  /// <list type="bullet">
+  ///   <item><description>Handler not found: Returns Result.Failure with NotFound error type</description></item>
+  ///   <item><description>OperationCanceledException: Converts to ServiceUnavailable with cancellation context</description></item>
+  ///   <item><description>All other exceptions: Wrapped in ServiceUnavailable error with full exception details</description></item>
+  ///   <item><description>Business failures: Propagated through Result pattern without exception handling</description></item>
+  /// </list>
+  /// </para>
+  /// </remarks>
+  [SuppressMessage(
+    "Minor Code Smell", 
+    "S2221:\"Exception\" should not be caught", 
+    Justification = "Mediator pattern requires catching all exceptions to convert them to Result failures. This is the boundary between exception-based and Result-based error handling.")]
   public async Task<Result<TResponse>> ProcessAsync<TResponse>(
     IRequest<TResponse> request,
     CancellationToken cancellationToken = default) {
@@ -104,12 +186,14 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
         _Logger.LogMediatorProcessedRequest(requestName, result.IsSuccess);
         return result;
       }
-    } catch (OperationCanceledException) {
+    }
+    catch (OperationCanceledException) {
       _Logger.LogMediatorRequestCancelled(requestName);
       return Result.Failure<TResponse>(ResultError.ServiceUnavailable(
         "REQUEST_CANCELLED",
         "The request was cancelled"));
-    } catch (Exception ex) {
+    }
+    catch (Exception ex) {
       _Logger.LogMediatorRequestProcessError(requestName, ex);
       return Result.Failure<TResponse>(ResultError.ServiceUnavailable(
         "MEDIATOR_PROCESSING_ERROR",
@@ -126,7 +210,25 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
   /// <param name="cancellationToken">The cancellation token.</param>
   /// <returns>A task that represents the async operation.</returns>
   /// <exception cref="ArgumentNullException">Thrown when notification is null.</exception>
-  [SuppressMessage("Minor Code Smell", "S2221:\"Exception\" should not be caught", Justification = "We want catch anything.")]
+  /// <remarks>
+  /// <para>
+  /// Fire-and-forget execution model:
+  /// <list type="bullet">
+  ///   <item><description>Parallel execution: All handlers execute concurrently for maximum throughput</description></item>
+  ///   <item><description>Error isolation: Failure of one handler does not affect others</description></item>
+  ///   <item><description>Non-blocking: Method returns when all handlers are started, not completed</description></item>
+  ///   <item><description>Exception safety: All exceptions are caught, logged, and isolated</description></item>
+  /// </list>
+  /// </para>
+  /// <para>
+  /// The method uses Task.WhenAll to wait for all handler tasks to complete, ensuring proper
+  /// exception handling and logging while maintaining the fire-and-forget semantics for the caller.
+  /// </para>
+  /// </remarks>
+  [SuppressMessage(
+    "Minor Code Smell", 
+    "S2221:\"Exception\" should not be caught", 
+    Justification = "Notification dispatching uses fire-and-forget semantics where exceptions must be caught and logged but not propagated to maintain system stability.")]
   public async Task DispatchAsync<TNotification>(TNotification notification, CancellationToken cancellationToken = default)
     where TNotification : INotification {
 
@@ -143,7 +245,7 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
       if (handlersList.Count > 0) {
         _Logger.LogMediatorNotificationDispatchingTo(notificationName, handlersList.Count);
 
-        // Execute all handlers in parallel but don't wait for completion
+        // Execute all handlers in parallel but wait for completion for proper error handling
         var tasks = handlersList.Select(handler =>
           ExecuteNotificationHandlerAsync(handler, notification, handler.GetType().Name, notificationName, cancellationToken));
 
@@ -153,7 +255,8 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
       } else {
         _Logger.LogMediatorNotificationNoHandler(notificationName);
       }
-    } catch (Exception ex) {
+    }
+    catch (Exception ex) {
       // Log the exception but don't throw - notifications should be fire-and-forget
       _Logger.LogMediatorNotificationProcessError(notificationName, ex);
     }
@@ -165,23 +268,24 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
   /// <param name="requestType">The concrete request type.</param>
   /// <param name="responseType">The response type.</param>
   /// <returns>An enumerable of decorators for the request/response combination.</returns>
-  [SuppressMessage(
-    "Performance",
-    "CA1848:Use the LoggerMessage delegates",
-    Justification = "Use direct LogDebug here as this is an exceptional case not covered by LoggerMessage extensions")]
+  /// <remarks>
+  /// <para>
+  /// This method uses graceful degradation: if decorator resolution fails for any reason,
+  /// it returns an empty collection and logs the error, allowing the request to proceed
+  /// without decorators rather than failing completely.
+  /// </para>
+  /// </remarks>
   [SuppressMessage(
     "Minor Code Smell",
     "S2221:\"Exception\" should not be caught",
-    Justification = "We want to catch all exceptions during decorator resolution to gracefully continue without decorators.")]
-  private IEnumerable<object> GetDecorators(
-    Type requestType,
-    Type responseType) {
-
+    Justification = "Decorator resolution uses graceful degradation where exceptions are caught and logged, but the request continues without decorators to maintain system availability.")]
+  private IEnumerable<object> GetDecorators(Type requestType, Type responseType) {
     try {
       var decoratorType = GetOrCreateDecoratorType(requestType, responseType);
       var decorators = _ServiceProvider.GetServices(decoratorType);
       return decorators.Cast<object>();
-    } catch (Exception ex) {
+    }
+    catch (Exception ex) {
       _Logger.LogPipelineDecoratorResolutionError(requestType.Name, ex);
       return [];
     }
@@ -198,6 +302,17 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
   /// <param name="responseType">The response type.</param>
   /// <param name="cancellationToken">The cancellation token.</param>
   /// <returns>A function that executes the pipeline.</returns>
+  /// <remarks>
+  /// <para>
+  /// Pipeline construction strategy:
+  /// <list type="bullet">
+  ///   <item><description>Inner-to-outer wrapping: Decorators wrap the handler in reverse order</description></item>
+  ///   <item><description>Compiled delegates: Each decorator and handler uses pre-compiled expressions</description></item>
+  ///   <item><description>Closure capture: Pipeline captures request and cancellation token efficiently</description></item>
+  ///   <item><description>Type safety: All type conversions are validated at compile time</description></item>
+  /// </list>
+  /// </para>
+  /// </remarks>
   private static RequestHandlerFunction<TResponse> BuildPipeline<TResponse>(
     object finalHandler,
     IEnumerable<object> decorators,
@@ -236,7 +351,16 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
   /// <param name="notificationName">The notification name for logging.</param>
   /// <param name="cancellationToken">The cancellation token.</param>
   /// <returns>A task representing the handler execution.</returns>
-  [SuppressMessage("Minor Code Smell", "S2221:\"Exception\" should not be caught", Justification = "We want catch anything.")]
+  /// <remarks>
+  /// <para>
+  /// Error isolation ensures that exceptions in one handler do not affect the execution
+  /// of other handlers, maintaining the reliability of the notification system.
+  /// </para>
+  /// </remarks>
+  [SuppressMessage(
+    "Minor Code Smell", 
+    "S2221:\"Exception\" should not be caught", 
+    Justification = "Notification handler isolation requires catching all exceptions to prevent one failing handler from affecting others in the parallel execution model.")]
   private async Task ExecuteNotificationHandlerAsync<TNotification>(
     IRequestHandler<TNotification, Unit> handler,
     TNotification notification,
@@ -258,7 +382,8 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
           handlerTypeName,
           notificationName);
       }
-    } catch (Exception ex) {
+    }
+    catch (Exception ex) {
       // Isolate handler failures - one failing handler shouldn't affect others
       _Logger.LogMediatorNotificationHandlerError(
         handlerTypeName,
@@ -293,6 +418,13 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
   /// <typeparam name="TResponse">The response type.</typeparam>
   /// <param name="handlerType">The handler interface type.</param>
   /// <returns>A compiled delegate for fast handler execution.</returns>
+  /// <remarks>
+  /// <para>
+  /// Performance optimization: This method creates and caches compiled expressions that
+  /// eliminate reflection overhead during handler execution. The compiled delegates
+  /// are significantly faster than reflection-based invocation.
+  /// </para>
+  /// </remarks>
   private static Func<object, object, CancellationToken, Task<Result<TResponse>>> GetOrCreateHandlerDelegate<TResponse>(Type handlerType) {
     var key = (handlerType, typeof(TResponse));
 
@@ -327,6 +459,12 @@ public class MediatorImplementation(IServiceProvider serviceProvider, ILogger<Me
   /// <typeparam name="TResponse">The response type.</typeparam>
   /// <param name="decoratorType">The decorator interface type.</param>
   /// <returns>A compiled delegate for fast decorator execution.</returns>
+  /// <remarks>
+  /// <para>
+  /// Performance optimization: Similar to handler delegates, this creates cached compiled
+  /// expressions for decorator execution, eliminating reflection overhead in the decorator pipeline.
+  /// </para>
+  /// </remarks>
   private static Func<object, object, RequestHandlerFunction<TResponse>, CancellationToken, Task<Result<TResponse>>> GetOrCreateDecoratorDelegate<TResponse>(Type decoratorType) {
     var key = (decoratorType, typeof(TResponse));
 

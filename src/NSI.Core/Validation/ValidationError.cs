@@ -1,68 +1,62 @@
 using NSI.Core.Validation.Abstractions;
 
 namespace NSI.Core.Validation;
+
 /// <summary>
-/// Default implementation of <see cref="IValidationError"/>.
+/// Immutable value semantic representing a single validation failure.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This class provides a concrete implementation of the validation error interface
-/// that can be used to represent validation failures throughout the application.
+/// Supplies structured detail (member path, machine code, human message, comparator value) enabling
+/// consistent UI feedback, localization mapping, problem details projections, and analytics.
 /// </para>
-/// <para>
-/// ValidationError objects contain structured information about what validation failed,
-/// including:
+/// <para>Semantics:
 /// <list type="bullet">
-///   <item><description>The property that failed validation (if applicable)</description></item>
-///   <item><description>A standardized error code that can be used for localization or categorization</description></item>
-///   <item><description>A human-readable error message</description></item>
-///   <item><description>The expected value that would have passed validation (optional)</description></item>
+///   <item><description><see cref="PropertyName"/> may be null for object-level / aggregate rules.</description></item>
+///   <item><description><see cref="ErrorCode"/> is a stable UPPER_SNAKE_CASE token (do not localize).</description></item>
+///   <item><description><see cref="ErrorMessage"/> is baseline English text (localizers map by code).</description></item>
+///   <item><description><see cref="ExpectedValue"/> conveys constraint data (e.g. max length, pattern) or null.</description></item>
 /// </list>
 /// </para>
-/// <para>
-/// Example usage:
-/// <code>
-/// var error = new ValidationError(
-///   errorCode: "REQUIRED",
-///   errorMessage: "Email address is required.",
-///   propertyName: "Email"
-/// );
-/// </code>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Keep messages concise (&lt;= 120 chars) and free of PII.</description></item>
+///   <item><description>Use dot notation for nested members (e.g. <c>User.Address.City</c>).</description></item>
+///   <item><description>Do not change published <see cref="ErrorCode"/> values (backwards compatibility).</description></item>
+///   <item><description>Leave <see cref="ExpectedValue"/> null if no comparator meaningfully applies.</description></item>
+/// </list>
 /// </para>
+/// <para>Thread-safety: Struct is immutable; safe to share across threads.</para>
+/// <para>Performance: Tiny value type; passed by readonly reference when large enumerations are involved.
+/// Avoid boxing by consuming via <see cref="IValidationError"/> only when necessary.</para>
 /// </remarks>
+/// <example>
+/// <code>
+/// var error = new ValidationError("REQUIRED", "Email is required.", "Email");
+/// Console.WriteLine($"{error.PropertyName}: {error.ErrorMessage} ({error.ErrorCode})");
+/// </code>
+/// </example>
 public readonly record struct ValidationError: IValidationError {
-  /// <inheritdoc/>
+  /// <inheritdoc />
   public string? PropertyName { get; }
 
-  /// <inheritdoc/>
+  /// <inheritdoc />
   public string ErrorCode { get; }
 
-  /// <inheritdoc/>
+  /// <inheritdoc />
   public string ErrorMessage { get; }
 
-  /// <inheritdoc/>
+  /// <inheritdoc />
   public object? ExpectedValue { get; }
 
   /// <summary>
-  /// Initializes a new instance of the <see cref="ValidationError"/> class.
+  /// Initializes a new validation error instance.
   /// </summary>
-  /// <param name="errorCode">The error code in UPPERCASE format.</param>
-  /// <param name="errorMessage">The human-readable error message.</param>
-  /// <param name="propertyName">The name of the property that failed validation.</param>
-  /// <param name="expectedValue">The expected value, if applicable.</param>
-  /// <exception cref="ArgumentException">
-  /// Thrown when <paramref name="errorCode"/> or <paramref name="errorMessage"/> is null or whitespace.
-  /// </exception>
-  /// <remarks>
-  /// <para>
-  /// Error codes should follow the UPPERCASE_WITH_UNDERSCORES convention
-  /// and be consistent across the application. Common examples include:
-  /// "REQUIRED", "INVALID_FORMAT", "NOT_UNIQUE", etc.
-  /// </para>
-  /// <para>
-  /// The error message should be clear, concise, and suitable for end-user display.
-  /// </para>
-  /// </remarks>
+  /// <param name="errorCode">Stable uppercase identifier (e.g. REQUIRED, TOO_LONG).</param>
+  /// <param name="errorMessage">Human-readable baseline English description.</param>
+  /// <param name="propertyName">Logical member path (dot notation) or null.</param>
+  /// <param name="expectedValue">Optional comparator / constraint value.</param>
+  /// <exception cref="ArgumentException">Thrown when <paramref name="errorCode"/> or <paramref name="errorMessage"/> is null/whitespace.</exception>
   public ValidationError(
     string errorCode,
     string errorMessage,

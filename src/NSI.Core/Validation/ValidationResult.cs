@@ -1,104 +1,86 @@
 using NSI.Core.Validation.Abstractions;
 
 namespace NSI.Core.Validation;
+
 /// <summary>
-/// Default implementation of <see cref="IValidationResult"/>.
+/// Immutable aggregation of validation errors (success when collection is empty).
 /// </summary>
 /// <remarks>
 /// <para>
-/// This class provides a concrete implementation of the validation result
-/// interface, with convenience methods for creating successful and failed 
-/// validation results.
+/// Encapsulates the outcome of validating an object. Provides a canonical structure consumed by
+/// domain services, pipelines, mediators and presentation layers to drive control flow or error
+/// projection (e.g. ProblemDetails / API responses).
 /// </para>
-/// <para>
-/// Key features:
+/// <para>Semantics:
 /// <list type="bullet">
-///   <item><description>Immutable result object with read-only error collection</description></item>
-///   <item><description>Static factory methods for common validation scenarios</description></item>
-///   <item><description>Automatic IsValid calculation based on error presence</description></item>
+///   <item><description><see cref="IsValid"/> is true iff <see cref="Errors"/> count equals zero.</description></item>
+///   <item><description><see cref="Errors"/> is never null; ordering preserves rule evaluation order.</description></item>
+///   <item><description>Instance is immutable after construction (defensive copy performed).</description></item>
+///   <item><description>Shared singleton used for success path (<see cref="Success"/>).</description></item>
 /// </list>
 /// </para>
-/// <para>
-/// Example usage:
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Return <see cref="Success"/> instead of allocating new empty instances.</description></item>
+///   <item><description>Prefer aggregating multiple rule errors rather than throwing exceptions.</description></item>
+///   <item><description>Keep error ordering deterministic for UI predictability and test stability.</description></item>
+///   <item><description>Do not mutate error objects; treat them as value semantics.</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: Immutable; safe for concurrent read access.</para>
+/// <para>Performance: Success path reuses a cached instance; failure path performs a single list copy.
+/// Additional allocations scale linearly with number of errors only.</para>
+/// </remarks>
+/// <example>
 /// <code>
-/// // Create a successful result
-/// var success = ValidationResult.Success;
-/// 
-/// // Create a failed result with custom error
-/// var failed = ValidationResult.Failed(
-///   "INVALID_EMAIL",
-///   "Email format is invalid.",
-///   "Email"
-/// );
-/// 
-/// // Check if validation passed
+/// var result = validator.Validate(user, context);
 /// if (!result.IsValid) {
-///   foreach (var error in result.Errors) {
-///     Console.WriteLine($"{error.PropertyName}: {error.ErrorMessage}");
+///   foreach (var e in result.Errors) {
+///     Console.WriteLine($"{e.PropertyName}: {e.ErrorMessage}");
 ///   }
 /// }
 /// </code>
-/// </para>
-/// </remarks>
+/// </example>
 public sealed class ValidationResult: IValidationResult {
-  /// <inheritdoc/>
+  /// <inheritdoc />
   public bool IsValid => Errors.Count == 0;
 
-  /// <inheritdoc/>
+  /// <inheritdoc />
   public IReadOnlyList<IValidationError> Errors { get; }
 
   /// <summary>
-  /// Gets a successful validation result with no errors.
+  /// Shared empty successful instance (no allocations on success path).
   /// </summary>
-  /// <remarks>
-  /// This shared instance can be used whenever a successful validation result is needed,
-  /// avoiding unnecessary object creation.
-  /// </remarks>
-  public static ValidationResult Success { get; } = new([]);
+  public static ValidationResult Success { get; } = new([], skipCopy: true);
 
   /// <summary>
-  /// Initializes a new instance of the <see cref="ValidationResult"/> class.
+  /// Creates a result from an existing error sequence (defensive copy unless flagged).
   /// </summary>
-  /// <param name="errors">The collection of validation errors.</param>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="errors"/> is null.
-  /// </exception>
-  /// <remarks>
-  /// The errors collection is converted to a read-only list to ensure immutability
-  /// of the validation result after creation.
-  /// </remarks>
-  public ValidationResult(IEnumerable<IValidationError> errors) {
+  /// <param name="errors">Source error sequence (enumerated immediately).</param>
+  /// <exception cref="ArgumentNullException">Thrown when <paramref name="errors"/> is null.</exception>
+  public ValidationResult(IEnumerable<IValidationError> errors) : this(errors, skipCopy: false) { }
+
+  private ValidationResult(IEnumerable<IValidationError> errors, bool skipCopy) {
     ArgumentNullException.ThrowIfNull(errors);
-    Errors = errors.ToList().AsReadOnly();
+    Errors = skipCopy && errors is IReadOnlyList<IValidationError> r
+      ? r
+      : errors.ToList().AsReadOnly();
   }
 
   /// <summary>
-  /// Creates a failed validation result with the specified errors.
+  /// Creates a failed result holding provided errors (params convenience).
   /// </summary>
-  /// <param name="errors">The validation errors to include in the result.</param>
-  /// <returns>A new validation result containing the errors.</returns>
-  /// <remarks>
-  /// This method allows passing multiple validation errors using params syntax.
-  /// </remarks>
-  public static ValidationResult Failed(params IValidationError[] errors) => new(errors);
+  public static ValidationResult Failed(params IValidationError[] errors) =>
+    errors is { Length: 0 } ? Success : new ValidationResult(errors, skipCopy: false);
 
   /// <summary>
-  /// Creates a failed validation result with a single error.
+  /// Creates a failed result with a single error (common fast path).
   /// </summary>
-  /// <param name="errorCode">The error code in UPPERCASE format.</param>
-  /// <param name="errorMessage">The human-readable error message.</param>
-  /// <param name="propertyName">The name of the property that failed validation, or null for entity-level errors.</param>
-  /// <param name="expectedValue">The expected value that would pass validation, if applicable.</param>
-  /// <returns>A new validation result containing the error.</returns>
-  /// <remarks>
-  /// This convenience method creates a validation result with a single error, which is
-  /// a common scenario for simple validation failures.
-  /// </remarks>
   public static ValidationResult Failed(
     string errorCode,
     string errorMessage,
     string? propertyName = null,
-    object? expectedValue = null) => new(
-      [new ValidationError(errorCode, errorMessage, propertyName, expectedValue)]
-    );
+    object? expectedValue = null) => new([
+      new ValidationError(errorCode, errorMessage, propertyName, expectedValue)
+    ], skipCopy: true);
 }

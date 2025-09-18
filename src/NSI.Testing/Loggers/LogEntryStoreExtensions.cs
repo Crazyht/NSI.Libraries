@@ -268,7 +268,7 @@ public static class LogEntryEnumerableExtensions {
     return entries.Where(e => e.Type == EntryType.ScopeStart &&
                              e.State.OfType<KeyValuePair<string, object>>()
                                .Any(kv => kv.Key == key &&
-                                         (kv.Value?.Equals(value) ?? value == null)));
+                                         ((kv.Value?.Equals(value)) ?? (value == null))));
   }
 
   /// <summary>

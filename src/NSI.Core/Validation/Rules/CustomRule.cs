@@ -1,53 +1,51 @@
 using NSI.Core.Validation.Abstractions;
 
 namespace NSI.Core.Validation.Rules;
+
 /// <summary>
-/// Allows creating custom validation rules with lambda expressions.
+/// Adapts a synchronous delegate into an <see cref="IValidationRule{T}"/> for lightweight rule composition.
 /// </summary>
-/// <typeparam name="T">The type of object being validated.</typeparam>
+/// <typeparam name="T">Domain object type being validated.</typeparam>
 /// <remarks>
 /// <para>
-/// This class provides a flexible way to create validation rules on-the-fly using lambda
-/// expressions, without needing to create separate concrete rule classes for simple validations.
+/// Enables on-the-fly creation of focused validation rules without a dedicated class. Useful for
+/// dynamic pipelines, tests, prototyping, or composing conditional logic around existing validators.
 /// </para>
 /// <para>
-/// It's particularly useful for:
+/// Semantics:
 /// <list type="bullet">
-///   <item><description>One-off validation rules</description></item>
-///   <item><description>Dynamically constructed validation pipelines</description></item>
-///   <item><description>Testing scenarios</description></item>
+///   <item><description>Delegate receives (instance, context) and returns a (possibly empty) sequence.</description></item>
+///   <item><description>Returned sequence must never be <see langword="null"/> (enforced here defensively).</description></item>
+///   <item><description>Normal validation failures are encoded as <see cref="IValidationError"/> objects (no throwing).</description></item>
+///   <item><description>Argument nulls are programmer errors and raise <see cref="ArgumentNullException"/>.</description></item>
 /// </list>
 /// </para>
 /// <para>
-/// Example usage:
-/// <code>
-/// var emailRule = new CustomRule&lt;User&gt;((user, context) => {
-///   if (string.IsNullOrEmpty(user.Email) || !IsValidEmail(user.Email)) {
-///     return new[] { new ValidationError {
-///       PropertyName = nameof(User.Email),
-///       ErrorCode = "INVALID_FORMAT",
-///       ErrorMessage = "Email format is invalid."
-///     }};
-///   }
-///   return Enumerable.Empty&lt;IValidationError&gt;();
-/// });
-/// </code>
+/// Guidelines:
+/// <list type="bullet">
+///   <item><description>Keep delegate side‑effect free and idempotent; it may be re‑run.</description></item>
+///   <item><description>Short‑circuit early on success paths to minimize allocations.</description></item>
+///   <item><description>Prefer yielding lazily when composing more complex logic; simple rules may return arrays.</description></item>
+///   <item><description>Use stable UPPER_SNAKE_CASE error codes to support client handling.</description></item>
+/// </list>
+/// </para>
+/// <para>
+/// Thread-safety: Instance is thread-safe if the supplied delegate is stateless / immutable.
+/// </para>
+/// <para>
+/// Performance: Invocation overhead is a single delegate call plus null and defensive checks.
 /// </para>
 /// </remarks>
 public sealed class CustomRule<T>: IValidationRule<T> {
   private readonly Func<T, IValidationContext, IEnumerable<IValidationError>> _ValidateFunc;
 
   /// <summary>
-  /// Initializes a new instance of the <see cref="CustomRule{T}"/> class.
+  /// Creates a custom rule backed by the provided synchronous delegate.
   /// </summary>
-  /// <param name="validateFunc">The validation function that implements the rule logic.</param>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="validateFunc"/> is null.
-  /// </exception>
+  /// <param name="validateFunc">Delegate implementing the rule logic.</param>
+  /// <exception cref="ArgumentNullException">Thrown when <paramref name="validateFunc"/> is null.</exception>
   /// <remarks>
-  /// The validation function must follow the same contract as the 
-  /// <see cref="IValidationRule{T}.Validate"/> method, accepting the object
-  /// to validate and a validation context.
+  /// The delegate contract mirrors <see cref="IValidationRule{T}.Validate"/> and must not return null.
   /// </remarks>
   public CustomRule(Func<T, IValidationContext, IEnumerable<IValidationError>> validateFunc) {
     ArgumentNullException.ThrowIfNull(validateFunc);
@@ -55,9 +53,10 @@ public sealed class CustomRule<T>: IValidationRule<T> {
   }
 
   /// <inheritdoc/>
-  /// <remarks>
-  /// This implementation delegates to the validation function provided in the constructor.
-  /// </remarks>
-  public IEnumerable<IValidationError> Validate(T instance, IValidationContext context) =>
-    _ValidateFunc(instance, context);
+  public IEnumerable<IValidationError> Validate(T instance, IValidationContext context) {
+    ArgumentNullException.ThrowIfNull(instance);
+    ArgumentNullException.ThrowIfNull(context);
+    var result = _ValidateFunc(instance, context);
+    return result ?? [];
+  }
 }

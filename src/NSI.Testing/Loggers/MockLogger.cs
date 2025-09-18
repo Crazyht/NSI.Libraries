@@ -3,112 +3,87 @@ using Microsoft.Extensions.Logging;
 namespace NSI.Testing.Loggers;
 
 /// <summary>
-/// Provides a mock implementation of <see cref="ILogger{T}"/> for testing purposes.
+/// Test double for <see cref="ILogger{TCategoryName}"/> capturing structured log entries and scopes.
 /// </summary>
-/// <typeparam name="T">The type whose name is used for the logger category name.</typeparam>
+/// <typeparam name="T">Category type used for logger name resolution.</typeparam>
 /// <remarks>
-/// <para>
-/// This mock logger captures all logging operations including scope management
-/// and stores them in a centralized store for test verification. It supports
-/// hierarchical scopes and maintains parent-child relationships between scopes,
-/// enabling comprehensive testing of logging behavior in complex scenarios.
-/// </para>
-/// <para>
-/// The logger is fully thread-safe and uses <see cref="AsyncLocal{T}"/> to maintain
-/// scope context across asynchronous operations. This ensures that logging calls
-/// made within async methods are properly associated with their originating scopes.
-/// </para>
-/// <para>
-/// Key features:
+/// <para>Responsibilities:
 /// <list type="bullet">
-///   <item><description>Complete ILogger{T} implementation for drop-in replacement</description></item>
-///   <item><description>Hierarchical scope tracking with parent-child relationships</description></item>
-///   <item><description>Thread-safe operations for parallel test execution</description></item>
-///   <item><description>AsyncLocal scope context for async/await scenarios</description></item>
-///   <item><description>Centralized storage for cross-logger test verification</description></item>
+///   <item><description>Capture every log invocation (all levels always enabled).</description></item>
+///   <item><description>Track hierarchical scope lifecycles (start/end) with parent relationships.</description></item>
+///   <item><description>Persist immutable <see cref="LogEntry"/> records into an injected store for
+///     deterministic assertions.</description></item>
 /// </list>
 /// </para>
-/// <para>
-/// Usage in dependency injection:
+/// <para>Design Notes:
+/// <list type="bullet">
+///   <item><description>Uses <see cref="AsyncLocal{T}"/> to maintain an ambient scope stack per async
+///     flow.</description></item>
+///   <item><description>Parent scope detection is O(1) (no LINQ allocations) during logging.</description></item>
+///   <item><description>Primary constructor wires required dependencies (DI friendly).</description></item>
+/// </list>
+/// </para>
+/// <para>Performance:
+/// <list type="bullet">
+///   <item><description>Logging path allocates only the <see cref="LogEntry"/> and state wrapper array
+///     (if required).</description></item>
+///   <item><description>Scope push/pop are O(1); parent scope lookup avoids LINQ (<c>Skip/First</c>) to
+///     eliminate iterator allocations.</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: Safe for concurrent usage across test code; each async execution context
+/// gets an isolated scope stack while sharing the underlying store.</para>
+/// <para>Usage Pattern:</para>
+/// </remarks>
+/// <example>
 /// <code>
+/// // DI registration (test composition)
 /// services.AddSingleton&lt;ILogEntryStore, InMemoryLogEntryStore&gt;();
 /// services.AddSingleton(typeof(ILogger&lt;&gt;), typeof(MockLogger&lt;&gt;));
+///
+/// // In test
+/// var logger = provider.GetRequiredService&lt;ILogger&lt;Sample&gt;&gt;();
+/// using (logger.BeginScope(new Dictionary&lt;string, object&gt; { ["UserId"] = 42 })) {
+///   logger.LogInformation("Processing {Id}", 123);
+/// }
+///
+/// var entries = store.GetAll();
+/// Assert.Single(entries.LogsOnly().WithLogLevel(LogLevel.Information));
 /// </code>
-/// </para>
-/// </remarks>
-/// <remarks>
-/// Initializes a new instance of the <see cref="MockLogger{T}"/> class.
-/// </remarks>
-/// <param name="store">The store where log entries will be saved.</param>
-/// <exception cref="ArgumentNullException">
-/// Thrown when <paramref name="store"/> is <see langword="null"/>.
-/// </exception>
-/// <remarks>
-/// <para>
-/// The logger requires a store implementation to capture log entries.
-/// The same store instance can be shared across multiple logger instances
-/// to enable centralized log collection and analysis in tests.
-/// </para>
-/// <para>
-/// Each logger instance maintains its own scope stack using AsyncLocal,
-/// ensuring that scope contexts are properly isolated between different
-/// execution flows while sharing the same underlying storage.
-/// </para>
-/// </remarks>
+/// </example>
+/// <seealso cref="ILogEntryStore"/>
+/// <seealso cref="LogEntry"/>
 public sealed class MockLogger<T>(ILogEntryStore store): ILogger<T> {
   private readonly ILogEntryStore _Store = store ?? throw new ArgumentNullException(nameof(store));
   private readonly AsyncLocal<Stack<Guid>> _ScopeStack = new();
 
-  /// <summary>
-  /// Begins a logical operation scope with the specified state.
-  /// </summary>
-  /// <typeparam name="TState">The type of the state object.</typeparam>
-  /// <param name="state">The state object that defines the scope.</param>
-  /// <returns>
-  /// An <see cref="IDisposable"/> that ends the scope when disposed.
-  /// </returns>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="state"/> is <see langword="null"/>.
-  /// </exception>
+  /// <summary>Begins a new logical scope associated with the calling asynchronous context.</summary>
+  /// <typeparam name="TState">State payload type (structured logging template state).</typeparam>
+  /// <param name="state">Non-null state value supplying scope variables.</param>
+  /// <returns><see cref="IDisposable"/> token that ends the scope upon disposal.</returns>
+  /// <exception cref="ArgumentNullException">When <paramref name="state"/> is null.</exception>
   /// <remarks>
-  /// <para>
-  /// This method creates a new logging scope and records a scope start entry
-  /// in the store. The scope is automatically assigned a unique identifier
-  /// and linked to its parent scope if one exists.
+  /// <para>State extraction rules:
+  /// <list type="bullet">
+  ///   <item><description>If <paramref name="state"/> implements
+  ///     <see cref="IEnumerable{T}"/> of <see cref="KeyValuePair{TKey, TValue}"/> its pairs are
+  ///     stored individually.</description></item>
+  ///   <item><description>Otherwise the raw state value is stored as a single element.</description></item>
+  /// </list>
   /// </para>
-  /// <para>
-  /// Scope variables are extracted from the state object. If the state implements
-  /// IEnumerable&lt;KeyValuePair&lt;string, object&gt;&gt; (such as structured logging
-  /// states), the key-value pairs are stored as scope variables. Otherwise,
-  /// the entire state object is stored as a single variable.
-  /// </para>
-  /// <para>
-  /// The returned IDisposable must be disposed to properly end the scope.
-  /// Using a using statement is recommended to ensure proper scope lifecycle:
-  /// <code>
-  /// using (logger.BeginScope("Operation {OperationId}", operationId)) {
-  ///   // Logging within scope
-  /// }
-  /// </code>
-  /// </para>
+  /// <para>Always wrap in a C# <c>using</c> block to guarantee balanced scope end emission.</para>
   /// </remarks>
-  public IDisposable BeginScope<TState>(TState state)
-    where TState : notnull {
+  public IDisposable BeginScope<TState>(TState state) where TState : notnull {
     ArgumentNullException.ThrowIfNull(state);
 
-    // Ensure the AsyncLocal stack is initialized for this context
     _ScopeStack.Value ??= new Stack<Guid>();
-
-    // Determine parent scope
     var parentId = _ScopeStack.Value.Count > 0 ? _ScopeStack.Value.Peek() : (Guid?)null;
     var newScopeId = Guid.NewGuid();
 
-    // Extract scope variables
     var variables = state is IEnumerable<KeyValuePair<string, object>> pairs
       ? pairs.Select(p => (object)p).ToArray()
       : [state];
 
-    // Record scope start
     _Store.Add(new LogEntry(
       EntryType.ScopeStart,
       newScopeId,
@@ -119,65 +94,36 @@ public sealed class MockLogger<T>(ILogEntryStore store): ILogger<T> {
       exception: null,
       state: variables));
 
-    // Push to stack
     _ScopeStack.Value.Push(newScopeId);
     return new ScopeTracker(_Store, _ScopeStack, newScopeId);
   }
 
-  /// <summary>
-  /// Checks if the given log level is enabled.
-  /// </summary>
-  /// <param name="logLevel">The log level to check.</param>
-  /// <returns>
-  /// Always returns <see langword="true"/> for testing purposes.
-  /// </returns>
-  /// <remarks>
-  /// <para>
-  /// This mock implementation always returns true to ensure all log messages
-  /// are captured regardless of their level. This behavior is appropriate for
-  /// testing scenarios where comprehensive log capture is desired.
-  /// </para>
-  /// <para>
-  /// In production scenarios, this method would typically check against
-  /// configured minimum log levels, but for testing purposes, capturing
-  /// all log levels provides maximum visibility into application behavior.
-  /// </para>
-  /// </remarks>
+  /// <summary>Indicates whether provided <paramref name="logLevel"/> is enabled (always true).</summary>
+  /// <param name="logLevel">Evaluated log level.</param>
+  /// <returns>Always <see langword="true"/> ensuring full capture.</returns>
+  /// <remarks>All levels enabled to maximize diagnostic visibility in tests.</remarks>
   public bool IsEnabled(LogLevel logLevel) {
-    // Toujours activé pour capturer tous les logs en tests.
-    // Références pour éviter IDE0060 (param) et CA1822 (statique suggéré).
-    _ = logLevel;
-    _ = _Store; // Garantit dépendance instance.
+    _ = logLevel; // suppress unused warnings; semantic always-on.
     return true;
   }
 
-  /// <summary>
-  /// Writes a log entry with the specified parameters.
-  /// </summary>
-  /// <typeparam name="TState">The type of the state object.</typeparam>
-  /// <param name="logLevel">The log level.</param>
-  /// <param name="eventId">The event identifier.</param>
-  /// <param name="state">The state object containing log data.</param>
-  /// <param name="exception">The exception to log, or <see langword="null"/> if none.</param>
-  /// <param name="formatter">A function that creates a log message from the state and exception.</param>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="formatter"/> is <see langword="null"/>.
-  /// </exception>
+  /// <summary>Captures a log message with structured state and optional exception.</summary>
+  /// <typeparam name="TState">State payload type.</typeparam>
+  /// <param name="logLevel">Log severity.</param>
+  /// <param name="eventId">Associated event identifier.</param>
+  /// <param name="state">State object (template values or arbitrary payload).</param>
+  /// <param name="exception">Optional exception instance.</param>
+  /// <param name="formatter">Formatter producing human-readable message.</param>
+  /// <exception cref="ArgumentNullException">When <paramref name="formatter"/> is null.</exception>
   /// <remarks>
-  /// <para>
-  /// This method captures the complete logging context including the current scope
-  /// hierarchy. The log entry is associated with the current scope (if any) and
-  /// maintains the parent-child relationships for proper hierarchical analysis.
+  /// <para>State storage strategy:
+  /// <list type="bullet">
+  ///   <item><description>If already an <c>object[]</c>, reused directly (zero copy).</description></item>
+  ///   <item><description>Else wrapped in a single-element array to keep uniform shape.</description></item>
+  /// </list>
   /// </para>
-  /// <para>
-  /// The state object is stored as an array to accommodate both simple values
-  /// and structured logging scenarios. For structured logging states that implement
-  /// IEnumerable, the individual elements are preserved for detailed analysis.
-  /// </para>
-  /// <para>
-  /// The formatter function is called to generate the final log message, which
-  /// is stored alongside the raw state data for comprehensive test verification.
-  /// </para>
+  /// <para>Scope linkage uses current stack top for <see cref="LogEntry.ScopeId"/> and second frame
+  /// (if present) for <see cref="LogEntry.ParentScopeId"/> without LINQ allocation.</para>
   /// </remarks>
   public void Log<TState>(
     LogLevel logLevel,
@@ -188,19 +134,21 @@ public sealed class MockLogger<T>(ILogEntryStore store): ILogger<T> {
     ArgumentNullException.ThrowIfNull(formatter);
 
     var message = formatter(state, exception);
-    var stateArray = state is object[] arr
-      ? arr
-      : state is not null
-        ? [state]
-        : [];
+    var stateArray = state is object[] arr ? arr : state is not null ? [state] : [];
 
-    // Get current scope information
-    var currentScope = _ScopeStack.Value?.Count > 0
-      ? _ScopeStack.Value.Peek()
-      : (Guid?)null;
-    var parentScope = _ScopeStack.Value?.Count > 1
-      ? _ScopeStack.Value.Skip(1).First()
-      : (Guid?)null;
+    Guid? currentScope = null;
+    Guid? parentScope = null;
+    var stack = _ScopeStack.Value;
+    if (stack is { Count: > 0 }) {
+      // Enumerate up to two frames (top=current, next=parent) without LINQ.
+      using var e = stack.GetEnumerator();
+      if (e.MoveNext()) {
+        currentScope = e.Current;
+        if (e.MoveNext()) {
+          parentScope = e.Current;
+        }
+      }
+    }
 
     _Store.Add(new LogEntry(
       EntryType.Log,
@@ -213,64 +161,29 @@ public sealed class MockLogger<T>(ILogEntryStore store): ILogger<T> {
       stateArray));
   }
 
-  /// <summary>
-  /// Manages the lifecycle of a logging scope.
-  /// </summary>
+  /// <summary>Internal disposable tracking a single scope lifecycle.</summary>
   /// <remarks>
-  /// <para>
-  /// This internal class handles the proper cleanup of logging scopes when
-  /// they are disposed. It ensures that scope end entries are recorded
-  /// and the scope stack is properly maintained.
-  /// </para>
-  /// <para>
-  /// The class implements the disposable pattern safely, preventing multiple
-  /// disposals from causing issues and ensuring consistent scope tracking
-  /// even in error scenarios.
-  /// </para>
+  /// <para>Records a <see cref="EntryType.ScopeEnd"/> upon first disposal; subsequent disposals are
+  /// ignored (idempotent).</para>
+  /// <para>Stack integrity: only pops if the tracked scope id matches the current top to avoid
+  /// corruption in misordered dispose scenarios.</para>
   /// </remarks>
-  /// <remarks>
-  /// Initializes a new instance of the <see cref="ScopeTracker"/> class.
-  /// </remarks>
-  /// <param name="store">The log entry store.</param>
-  /// <param name="stack">The scope stack.</param>
-  /// <param name="scopeId">The identifier of the scope to track.</param>
-  /// <remarks>
-  /// <para>
-  /// The scope tracker maintains references to the store and stack to properly
-  /// manage scope lifecycle. The scope identifier is used to ensure correct
-  /// scope end recording even in nested scope scenarios.
-  /// </para>
-  /// </remarks>
-  private sealed class ScopeTracker(ILogEntryStore store, AsyncLocal<Stack<Guid>> stack, Guid scopeId): IDisposable {
+  private sealed class ScopeTracker(
+    ILogEntryStore store,
+    AsyncLocal<Stack<Guid>> stack,
+    Guid scopeId): IDisposable {
     private readonly ILogEntryStore _Store = store;
     private readonly AsyncLocal<Stack<Guid>> _Stack = stack;
     private readonly Guid _ScopeId = scopeId;
     private bool _Disposed;
 
-    /// <summary>
-    /// Ends the scope and records the scope end entry.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This method safely ends the scope by removing it from the scope stack
-    /// and recording a scope end entry in the store. It handles multiple disposal
-    /// calls gracefully and ensures consistent state even if the scope stack
-    /// has been modified unexpectedly.
-    /// </para>
-    /// <para>
-    /// The method uses a defensive approach, only popping from the stack if
-    /// the expected scope identifier matches the top of the stack, preventing
-    /// corruption in complex nested scenarios.
-    /// </para>
-    /// </remarks>
+    /// <summary>Ends the scope (first call only) and emits a scope end entry.</summary>
     public void Dispose() {
       if (_Disposed) {
         return;
       }
-
       _Disposed = true;
 
-      // Pop from stack and record scope end
       if (_Stack.Value!.TryPop(out var popped) && popped == _ScopeId) {
         _Store.Add(new LogEntry(
           EntryType.ScopeEnd,

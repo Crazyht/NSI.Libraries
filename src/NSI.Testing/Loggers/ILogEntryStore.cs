@@ -1,86 +1,87 @@
-
 namespace NSI.Testing.Loggers;
 
 /// <summary>
-/// Provides methods for storing and retrieving log entries.
+/// Thread-safe in-memory (or pluggable) aggregation surface for captured <see cref="LogEntry"/>
+/// instances produced by test <c>ILogger</c> implementations (e.g. <c>MockLogger&lt;T&gt;</c>).
 /// </summary>
 /// <remarks>
-/// <para>
-/// Implementations must be thread-safe to support parallel test execution.
-/// The store maintains the chronological order of log entries and scope operations,
-/// ensuring that the sequence of logging events can be accurately reproduced
-/// and analyzed during test verification.
-/// </para>
-/// <para>
-/// This interface serves as the foundation for centralizing log capture across
-/// multiple logger instances, enabling comprehensive testing scenarios where
-/// multiple components may be logging simultaneously.
-/// </para>
-/// <para>
-/// Key design principles:
+/// <para>Responsibilities:
 /// <list type="bullet">
-///   <item><description>Thread-safe operations for concurrent access</description></item>
-///   <item><description>Chronological ordering preservation</description></item>
-///   <item><description>Efficient retrieval for test assertions</description></item>
-///   <item><description>Memory management for long-running tests</description></item>
+///   <item><description>Capture chronological sequence of log messages and scope lifecycle events.</description></item>
+///   <item><description>Provide immutable snapshot enumeration for deterministic test assertions and
+///     benchmark analysis.</description></item>
+///   <item><description>Support isolation by clearing between tests while preventing cross‑test bleed.</description></item>
 /// </list>
 /// </para>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Implementations MUST guarantee insertion order preservation (no reordering).</description></item>
+///   <item><description>Return defensive copies or immutable views to callers (avoid exposing internals).</description></item>
+///   <item><description>Use lightweight synchronization (e.g. lock-free structures or fine-grained
+///     locking) to minimize contention under parallel test execution.</description></item>
+///   <item><description>Ensure <see cref="Clear"/> cannot interleave partially with <see cref="Add"/> (atomic
+///     semantics).</description></item>
+/// </list>
+/// </para>
+/// <para>Performance:
+/// <list type="bullet">
+///   <item><description>Typical entry volume per test is low (hundreds); allocate with growth strategy
+///     to minimize resize churn.</description></item>
+///   <item><description><see cref="GetAll"/> should be O(n) with minimal copying; prefer reusing immutable
+///     snapshot when safe.</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: All members MUST be safe for concurrent invocation by multiple logger
+/// instances operating in parallel test scenarios.</para>
 /// </remarks>
+/// <example>
+/// <code>
+/// // Injection in test composition
+/// ILogEntryStore store = new InMemoryLogEntryStore();
+/// var logger = new MockLogger&lt;MyComponent&gt;(store);
+///
+/// // Exercise component producing logs
+/// component.Execute();
+///
+/// // Assert on captured entries
+/// var errors = store.GetAll()
+///   .LogsOnly()
+///   .WithLogLevel(LogLevel.Error)
+///   .ToList();
+/// Assert.Single(errors);
+///
+/// // Reset between tests
+/// store.Clear();
+/// </code>
+/// </example>
+/// <seealso cref="LogEntry"/>
+/// <seealso cref="EntryType"/>
 public interface ILogEntryStore {
-  /// <summary>
-  /// Adds a log entry to the store.
-  /// </summary>
-  /// <param name="entry">The log entry to add.</param>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="entry"/> is <see langword="null"/>.
-  /// </exception>
+  /// <summary>Adds a log or scope entry to the store preserving chronological order.</summary>
+  /// <param name="entry">Fully constructed immutable log entry (non-null).</param>
+  /// <exception cref="ArgumentNullException">When <paramref name="entry"/> is null.</exception>
   /// <remarks>
-  /// <para>
-  /// This method must be thread-safe and should preserve the chronological
-  /// order of entries as they are added. The implementation should ensure
-  /// that concurrent calls to this method do not result in lost entries
-  /// or corrupted state.
-  /// </para>
-  /// <para>
-  /// Entries are typically added by <see cref="MockLogger{T}"/> instances
-  /// during test execution, capturing both regular log messages and scope
-  /// lifecycle events.
-  /// </para>
+  /// <para>Implementations MUST ensure visibility of the inserted entry to subsequent
+  /// <see cref="GetAll"/> calls that occur after this method returns.</para>
   /// </remarks>
   public void Add(LogEntry entry);
 
-  /// <summary>
-  /// Gets all log entries in chronological order.
-  /// </summary>
-  /// <returns>
-  /// A read-only list of all stored log entries, ordered by the time they were added.
-  /// </returns>
+  /// <summary>Retrieves all entries in insertion (chronological) order.</summary>
+  /// <returns>Read-only snapshot list of captured entries (never null, possibly empty).</returns>
   /// <remarks>
-  /// <para>
-  /// This method should return a snapshot of all entries at the time of the call,
-  /// ensuring that the returned collection remains stable even if new entries
-  /// are added after the method returns.
-  /// </para>
-  /// <para>
-  /// The returned collection should be read-only to prevent accidental
-  /// modifications that could affect test reliability.
-  /// </para>
+  /// <para>The returned collection MUST NOT reflect future additions; callers rely on snapshot
+  /// semantics to produce deterministic assertions.</para>
+  /// <para>Implementations may return an internally cached immutable list if no intervening
+  /// mutations occurred since the previous call.</para>
   /// </remarks>
   public IReadOnlyList<LogEntry> GetAll();
 
-  /// <summary>
-  /// Removes all log entries from the store.
-  /// </summary>
+  /// <summary>Clears all stored entries atomically.</summary>
   /// <remarks>
-  /// <para>
-  /// This method is typically called between test methods or test classes
-  /// to ensure a clean state for each test execution. It should be thread-safe
-  /// and ensure that concurrent operations are handled gracefully.
-  /// </para>
-  /// <para>
-  /// After calling this method, <see cref="GetAll"/> should return an empty
-  /// collection until new entries are added.
-  /// </para>
+  /// <para>Subsequent calls to <see cref="GetAll"/> MUST return an empty collection until new
+  /// entries are added.</para>
+  /// <para>If invoked concurrently with <see cref="Add"/>, implementation MUST guarantee either
+  /// the entry appears in a later snapshot or is fully discarded (no partial/corrupt state).</para>
   /// </remarks>
   public void Clear();
 }

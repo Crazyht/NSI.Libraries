@@ -2,7 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
-using NSI.Domains;
 
 namespace NSI.EntityFramework;
 
@@ -39,8 +38,8 @@ public static partial class ModelBuilderExtension {
 
       ApplySnakeCaseToColumnNames(entity);
 
-      // Ignore entities that implement ITptStrategy (TPT inheritance strategy)
-      if (!typeof(ITptStrategy).IsAssignableFrom(clrType)) {
+      // Ignore abstract entities (inheritance strategy)
+      if (!clrType.IsAbstract) {
         ApplySnakeCaseToKeys(entity);
       }
 

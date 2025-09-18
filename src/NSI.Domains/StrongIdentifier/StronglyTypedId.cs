@@ -5,108 +5,137 @@ using System.Reflection;
 namespace NSI.Domains.StrongIdentifier;
 
 /// <summary>
-/// Base record for implementing strongly-typed identifiers that wrap primitive types.
+/// Provides a generic base for strongly-typed identifiers wrapping a primitive value.
 /// </summary>
-/// <typeparam name="TId">The concrete ID type that derives from this class.</typeparam>
-/// <typeparam name="TUnderlying">The underlying primitive type (e.g., <see cref="Guid"/>, <see cref="int"/>, <see cref="string"/>) stored in the ID.</typeparam>
+/// <typeparam name="TId">Concrete identifier type deriving from this base.</typeparam>
+/// <typeparam name="TUnderlying">Underlying value type (e.g. <see cref="Guid"/>, <see cref="int"/>, <see cref="long"/>, <see cref="string"/>).</typeparam>
+/// <param name="Value">Underlying primitive value of the identifier.</param>
 /// <remarks>
 /// <para>
-/// This class implements the strongly-typed ID pattern to avoid primitive obsession with IDs.
-/// It provides type safety by wrapping primitive values in domain-specific types,
-/// preventing IDs of different entity types from being accidentally mixed.
+/// Hybrid implementation: fast path without reflection for common primitives (Guid, int, long, string)
+/// and a cached reflection fallback (TryParse/Parse discovery) for custom value types. Reflection by
+/// name is justified here as a last-resort dynamic scenario (generic unknown type) per repository
+/// guidelines (see Reflection Standards - last resort rule).
 /// </para>
-/// <para>
-/// Features include:
+/// <para>Semantics:
 /// <list type="bullet">
-///   <item><description>Type-safe IDs that cannot be accidentally mixed across different entity types</description></item>
-///   <item><description>String representation with type name prefix for improved debugging and logging</description></item>
-///   <item><description>Automatic parsing from strings to strongly-typed IDs via reflection</description></item>
-///   <item><description>Support for Entity Framework Core via <c>NSI.EntityFramework.Converters.StronglyTypedIdValueConverter{TId, TUnderlying}</c></description></item>
-///   <item><description>JSON serialization support via <c>NSI.Json.StronglyTypedIdJsonConverterFactory</c></description></item>
+///   <item><description>Stable invariant serialization format: <c>TypeName-Value</c>.</description></item>
+///   <item><description>Record equality delegates to underlying value.</description></item>
+///   <item><description><see cref="TryParse(string?, IFormatProvider?, out TId?)"/> consumes the same format.</description></item>
+///   <item><description>Custom underlying types must expose static TryParse / Parse signatures.</description></item>
+/// </list>
+/// </para>
+/// <para>Performance:
+/// <list type="bullet">
+///   <item><description>No reflection on hot path for Guid/int/long/string.</description></item>
+///   <item><description>Single allocation for serialization (string create).</description></item>
+///   <item><description>Reflection metadata resolved once per closed generic type.</description></item>
 /// </list>
 /// </para>
 /// </remarks>
-/// <example>
-/// Creating a strongly-typed ID:
-/// <code>
-/// public sealed record UserId(Guid Value) : StronglyTypedId&lt;UserId, Guid>(Value);
-/// 
-/// // Usage
-/// var id = new UserId(Guid.NewGuid());
-/// </code>
-/// </example>
 public abstract record StronglyTypedId<TId, TUnderlying>(TUnderlying Value): IStronglyTypedId
-    where TId : StronglyTypedId<TId, TUnderlying> {
-  // Cache reflection info once per closed generic type
+  where TId : StronglyTypedId<TId, TUnderlying> {
   private static readonly Type UnderlyingType = typeof(TUnderlying);
+  private static readonly string Prefix = typeof(TId).Name + "-";
+
+  // Fast path selector for common primitives (avoids any reflection)
+  [SuppressMessage(
+    "Major Code Smell",
+    "S2743:Static fields should not be used in generic types",
+    Justification = "Per closed generic optimization; acceptable per guidelines (static cache pattern).")]
+  private static readonly bool IsGuid = UnderlyingType == typeof(Guid);
+  [SuppressMessage(
+    "Major Code Smell",
+    "S2743:Static fields should not be used in generic types",
+    Justification = "Per closed generic optimization; acceptable per guidelines (static cache pattern).")]
+  private static readonly bool IsString = UnderlyingType == typeof(string);
+  [SuppressMessage(
+    "Major Code Smell",
+    "S2743:Static fields should not be used in generic types",
+    Justification = "Per closed generic optimization; acceptable per guidelines (static cache pattern).")]
+  private static readonly bool IsInt = UnderlyingType == typeof(int);
+  [SuppressMessage(
+    "Major Code Smell",
+    "S2743:Static fields should not be used in generic types",
+    Justification = "Per closed generic optimization; acceptable per guidelines (static cache pattern).")]
+  private static readonly bool IsLong = UnderlyingType == typeof(long);
+  [SuppressMessage(
+    "Major Code Smell",
+    "S2743:Static fields should not be used in generic types",
+    Justification = "Per closed generic optimization; acceptable per guidelines (static cache pattern).")]
+  private static readonly bool NeedsReflection = !(IsGuid || IsString || IsInt || IsLong);
+
+  // Reflection fallback only initialized when needed
+  [SuppressMessage(
+    "Major Code Smell",
+    "S2743:Static fields should not be used in generic types",
+    Justification = "Cached only for uncommon underlying types; performance gain outweighs warning.")]
+  private static readonly MethodInfo? TryParseWithFormatProviderMethod = NeedsReflection
+    ? UnderlyingType.GetMethod(
+        "TryParse",
+        BindingFlags.Public | BindingFlags.Static,
+        null,
+        [typeof(string), typeof(IFormatProvider), UnderlyingType.MakeByRefType()],
+        null)
+    : null;
 
   [SuppressMessage(
     "Major Code Smell",
     "S2743:Static fields should not be used in generic types",
-    Justification = "Reflection cache on Generic Type.")]
-  private static readonly MethodInfo? TryParseWithFormatProviderMethod = UnderlyingType.GetMethod(
-          "TryParse",
-          BindingFlags.Public | BindingFlags.Static,
-          null,
-          [typeof(string), typeof(IFormatProvider), UnderlyingType.MakeByRefType()],
-          null);
+    Justification = "Cached only for uncommon underlying types; performance gain outweighs warning.")]
+  private static readonly MethodInfo? TryParseMethod = NeedsReflection
+    ? UnderlyingType.GetMethod(
+        "TryParse",
+        BindingFlags.Public | BindingFlags.Static,
+        null,
+        [typeof(string), UnderlyingType.MakeByRefType()],
+        null)
+    : null;
 
   [SuppressMessage(
     "Major Code Smell",
     "S2743:Static fields should not be used in generic types",
-    Justification = "Reflection cache on Generic Type.")]
-  private static readonly MethodInfo? TryParseMethod = UnderlyingType.GetMethod(
-          "TryParse",
-          BindingFlags.Public | BindingFlags.Static,
-          null,
-          [typeof(string), UnderlyingType.MakeByRefType()],
-          null);
+    Justification = "Cached only for uncommon underlying types; performance gain outweighs warning.")]
+  private static readonly MethodInfo? ParseWithFormatProviderMethod = NeedsReflection
+    ? UnderlyingType.GetMethod(
+        "Parse",
+        BindingFlags.Public | BindingFlags.Static,
+        null,
+        [typeof(string), typeof(IFormatProvider)],
+        null)
+    : null;
 
   [SuppressMessage(
     "Major Code Smell",
     "S2743:Static fields should not be used in generic types",
-    Justification = "Reflection cache on Generic Type.")]
-  private static readonly MethodInfo? ParseWithFormatProviderMethod = UnderlyingType.GetMethod(
-          "Parse",
-          BindingFlags.Public | BindingFlags.Static,
-          null,
-          [typeof(string), typeof(IFormatProvider)],
-          null);
-
-  [SuppressMessage(
-    "Major Code Smell",
-    "S2743:Static fields should not be used in generic types",
-    Justification = "Reflection cache on Generic Type.")]
-  private static readonly MethodInfo? ParseMethod = UnderlyingType.GetMethod(
-          "Parse",
-          BindingFlags.Public | BindingFlags.Static,
-          null,
-          [typeof(string)],
-          null);
+    Justification = "Cached only for uncommon underlying types; performance gain outweighs warning.")]
+  private static readonly MethodInfo? ParseMethod = NeedsReflection
+    ? UnderlyingType.GetMethod(
+        "Parse",
+        BindingFlags.Public | BindingFlags.Static,
+        null,
+        [typeof(string)],
+        null)
+    : null;
 
   /// <summary>
-  /// Attempts to parse a string representation back into a strongly-typed ID.
+  /// Attempts to parse a serialized identifier produced by <see cref="ToSerializedString(TId)"/>.
   /// </summary>
-  /// <param name="input">The string to parse, which should be in the format "TypeName-Value".</param>
-  /// <param name="provider">An object that supplies culture-specific formatting information.</param>
-  /// <param name="result">When this method returns, contains the parsed ID value if successful; otherwise, null.</param>
-  /// <returns><see langword="true"/> if the string was successfully parsed; otherwise, <see langword="false"/>.</returns>
-  /// <remarks>
-  /// This method handles parsing string representations created by <see cref="ToSerializedString"/> and expects
-  /// the input string to be in the format "{TypeName}-{Value}" where TypeName is the name of the concrete ID type.
-  /// </remarks>
+  /// <param name="input">Serialized form: <c>TypeName-Value</c>.</param>
+  /// <param name="provider">Optional culture provider for underlying parsing.</param>
+  /// <param name="result">Resulting identifier on success; otherwise null.</param>
+  /// <returns><c>true</c> if parsing succeeds; otherwise <c>false</c>.</returns>
   [SuppressMessage(
     "Design",
     "CA1000:Do not declare static members on generic types",
-    Justification = "Needed by AspNet Core for Route & Query Binding")]
+    Justification = "Required for ASP.NET Core model binding & general discoverability.")]
   public static bool TryParse(string? input, IFormatProvider? provider, out TId? result) {
     result = null;
-
     if (!IsValidInput(input, out var payload)) {
       return false;
     }
 
-    if (!TryParsePayload(payload, provider, out var parsed)) {
+    if (!TryParseUnderlying(payload, provider, out var parsed)) {
       return false;
     }
 
@@ -116,60 +145,84 @@ public abstract record StronglyTypedId<TId, TUnderlying>(TUnderlying Value): ISt
 
   private static bool IsValidInput(string? input, out string payload) {
     payload = string.Empty;
-
     if (string.IsNullOrEmpty(input)) {
       return false;
     }
-
-    var prefix = typeof(TId).Name + "-";
-    if (!input.StartsWith(prefix, StringComparison.Ordinal)) {
+    if (!input.StartsWith(Prefix, StringComparison.Ordinal)) {
       return false;
     }
-
-    payload = input[prefix.Length..];
+    payload = input[Prefix.Length..];
     return true;
   }
 
-  private static bool TryParsePayload(string payload, IFormatProvider? provider, out object? parsed) {
+  private static bool TryParseUnderlying(string payload, IFormatProvider? provider, out object? parsed) {
     parsed = null;
-
+    if (TryParsePrimitive(payload, provider, out parsed)) {
+      return true;
+    }
+    if (!NeedsReflection) {
+      return false;
+    }
     if (TryParseWithFormatProviderMethod != null) {
       return InvokeTryParseWithFormatProvider(payload, provider, out parsed);
     }
-
     if (TryParseMethod != null) {
       return InvokeTryParse(payload, out parsed);
     }
-
     if (ParseWithFormatProviderMethod != null) {
       return InvokeParseWithFormatProvider(payload, provider, out parsed);
     }
-
     if (ParseMethod != null) {
       return InvokeParse(payload, out parsed);
     }
+    throw new NotSupportedException($"Underlying type '{UnderlyingType.Name}' exposes no supported Parse / TryParse methods.");
+  }
 
-    if (UnderlyingType == typeof(string)) {
-      parsed = payload;
+  private static bool TryParsePrimitive(string payload, IFormatProvider? provider, out object? value) {
+    value = null;
+    if (IsGuid) {
+      if (Guid.TryParse(payload, out var g)) {
+        value = g;
+        return true;
+      }
+      return false;
+    }
+    if (IsInt) {
+      var culture = provider as CultureInfo ?? CultureInfo.InvariantCulture;
+      if (int.TryParse(payload, NumberStyles.Integer, culture, out var i)) {
+        value = i;
+        return true;
+      }
+      return false;
+    }
+    if (IsLong) {
+      var culture = provider as CultureInfo ?? CultureInfo.InvariantCulture;
+      if (long.TryParse(payload, NumberStyles.Integer, culture, out var l)) {
+        value = l;
+        return true;
+      }
+      return false;
+    }
+    if (IsString) {
+      value = payload;
       return true;
     }
-
-    throw new NotSupportedException($"No TryParse or Parse on {UnderlyingType.Name}");
+    return false;
   }
 
   private static bool InvokeTryParseWithFormatProvider(string payload, IFormatProvider? provider, out object? parsed) {
-    const int ParsedValueIndex = 2; // Assign magic number '2' to a well-named constant
+    const int ParsedValueIndex = 2;
     var args = new object?[] { payload, provider, Activator.CreateInstance(UnderlyingType) };
     var success = (bool)TryParseWithFormatProviderMethod!.Invoke(null, args)!;
-    parsed = success && args[ParsedValueIndex] != null ? args[ParsedValueIndex]! : null; // Use the constant instead of the magic number
+    parsed = success ? args[ParsedValueIndex] : null;
     return success;
   }
 
   private static bool InvokeTryParse(string payload, out object? parsed) {
-    const int ParsedValueIndex = 1; // Assign magic number '1' to a well-named constant
+    const int ParsedValueIndex = 1;
     var args = new object?[] { payload, Activator.CreateInstance(UnderlyingType) };
     var success = (bool)TryParseMethod!.Invoke(null, args)!;
-    parsed = success && args[ParsedValueIndex] != null ? args[ParsedValueIndex]! : null; // Use the constant instead of the magic number
+    parsed = success ? args[ParsedValueIndex] : null;
     return success;
   }
 
@@ -193,33 +246,23 @@ public abstract record StronglyTypedId<TId, TUnderlying>(TUnderlying Value): ISt
     }
   }
 
-  /// <summary>
-  /// Converts the strongly-typed ID to its string representation for serialization.
-  /// </summary>
-  /// <param name="id">The strongly-typed ID to convert.</param>
-  /// <returns>A string representation in the format "TypeName-Value".</returns>
-  /// <exception cref="ArgumentNullException">Thrown when <paramref name="id"/> is null.</exception>
-  /// <remarks>
-  /// The string format is designed to be human-readable and consists of the type name 
-  /// followed by a hyphen and then the underlying value. This format makes debugging easier
-  /// and prevents confusion between different ID types with the same underlying value.
-  /// </remarks>
+  /// <summary>Serializes an identifier to the canonical <c>TypeName-Value</c> form.</summary>
+  /// <param name="id">Identifier instance (non-null).</param>
+  /// <returns>Invariant string representation.</returns>
+  /// <exception cref="ArgumentNullException">When <paramref name="id"/> is null.</exception>
+  /// <remarks>Uses invariant culture; safe for persistence, logging and diagnostics.</remarks>
   [SuppressMessage(
     "Design",
     "CA1000:Do not declare static members on generic types",
-    Justification = "Needed by JsonConverter")]
+    Justification = "Utility required by JSON / EF converters & external callers.")]
   public static string ToSerializedString(TId id) {
     ArgumentNullException.ThrowIfNull(id);
-    return $"{typeof(TId).Name}-{(id.Value is IFormattable f ? f.ToString(null, CultureInfo.InvariantCulture) : id.Value?.ToString())}";
+    return id.Value is IFormattable f
+      ? string.Create(CultureInfo.InvariantCulture, $"{typeof(TId).Name}-{f.ToString(null, CultureInfo.InvariantCulture)}")
+      : string.Create(CultureInfo.InvariantCulture, $"{typeof(TId).Name}-{id.Value}");
   }
 
-  /// <summary>
-  /// Returns a string representation of this strongly-typed ID.
-  /// </summary>
-  /// <returns>A string in the format "TypeName-Value".</returns>
-  /// <remarks>
-  /// Override of the <see cref="object.ToString"/> method that uses <see cref="ToSerializedString"/> 
-  /// to create a consistent string representation with the type name as prefix.
-  /// </remarks>
+  /// <summary>Returns the canonical string form of this identifier.</summary>
+  /// <returns>Invariant string representation.</returns>
   public override string ToString() => ToSerializedString((TId)this);
 }

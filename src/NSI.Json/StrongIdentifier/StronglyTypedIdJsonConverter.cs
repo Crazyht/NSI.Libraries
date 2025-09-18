@@ -46,7 +46,7 @@ namespace NSI.Json.StrongIdentifier;
 /// <seealso cref="StronglyTypedIdJsonConverterFactory"/>
 /// <seealso cref="StronglyTypedId{TId, TUnderlying}"/>
 public class StronglyTypedIdJsonConverter<TId, TUnderlying>: JsonConverter<TId>
-  where TId: StronglyTypedId<TId, TUnderlying> {
+  where TId : StronglyTypedId<TId, TUnderlying> {
   /// <summary>
   /// Reads a strongly-typed identifier from its serialized string form.
   /// </summary>

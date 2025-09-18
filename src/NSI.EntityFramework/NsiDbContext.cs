@@ -52,7 +52,7 @@ public class NsiDbContext<TUser>: DbContext {
     DbContextOptions options,
     IUserAccessor userAccessor,
     TimeProvider timeProvider,
-    ITenantService tenantService): base(options) {
+    ITenantService tenantService) : base(options) {
     ArgumentNullException.ThrowIfNull(options);
     ArgumentNullException.ThrowIfNull(userAccessor);
     ArgumentNullException.ThrowIfNull(timeProvider);

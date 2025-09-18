@@ -219,7 +219,7 @@ public static class MI {
   /// </code>
   /// </example>
   [SuppressMessage(
-    "Minor Code Smell", 
+    "Minor Code Smell",
     "S2436:Reduce the number of generic parameters in the 'MI.Of' method to no more than the 3 authorized.",
     Justification = "MethodInfo resolution helper requires multiple overloads to support various method signatures. " +
                    "Limiting to 3 generic parameters would prevent resolution of methods with more parameters, " +

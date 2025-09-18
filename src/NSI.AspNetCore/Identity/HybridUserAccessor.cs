@@ -2,92 +2,55 @@ using Microsoft.Extensions.Logging;
 using NSI.Core.Identity;
 
 namespace NSI.AspNetCore.Identity;
+
 /// <summary>
-/// A hybrid implementation of <see cref="IUserAccessor"/> that attempts to retrieve user information
-/// from the HTTP context first and falls back to a daemon user if that fails.
+/// Hybrid <see cref="IUserAccessor"/> resolving interactive principal first then falling back to daemon user.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This implementation provides a seamless transition between interactive web requests and
-/// non-interactive operations by first trying to get the user from the HTTP context,
-/// and if that fails (e.g., no authenticated user or outside HTTP context), using a daemon
-/// user as a fallback.
+/// Enables components to obtain a <see cref="UserInfo"/> whether code executes inside an HTTP request
+/// pipeline (authenticated user present) or in a non-interactive/background context where only a
+/// system (daemon) identity is available.
 /// </para>
-/// <para>
-/// This approach is particularly useful for:
+/// <para>Semantics:
 /// <list type="bullet">
-///   <item><description>Components that may be used in both web and non-web contexts</description></item>
-///   <item><description>Services that need to handle both authenticated and unauthenticated requests</description></item>
-///   <item><description>Operations that might be triggered by either users or background processes</description></item>
+///   <item><description>Primary source: <see cref="HttpContextUserAccessor"/>; fallback: <see cref="DaemonUserAccessor"/>.</description></item>
+///   <item><description>Only <see cref="UnauthorizedAccessException"/> / <see cref="InvalidOperationException"/> trigger fallback.</description></item>
+///   <item><description>Never returns <c>null</c>; always a valid <see cref="UserInfo"/> or throws for unexpected errors.</description></item>
+///   <item><description>Propagation: Exceptions other than the allowed fallback set bubble up unchanged.</description></item>
 /// </list>
 /// </para>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Register as <c>Scoped</c> (same lifetime as underlying HTTP accessor) or <c>Singleton</c> if both dependencies support it.</description></item>
+///   <item><description>Use in services that operate across both request &amp; background execution paths.</description></item>
+///   <item><description>Log at <c>Debug</c> level on fallback only (avoids noise for normal flows).</description></item>
+///   <item><description>Do not use for security decisions that must distinguish interactive vs system users—inspect the returned user object.</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: The accessor is immutable; underlying dependencies must honor their own lifetimes.
+/// Safe for concurrent calls.</para>
+/// <para>Performance: Single try/catch; no allocations except when logging fallback &amp; constructing
+/// daemon user (already cached by <see cref="DaemonUserAccessor"/>). Uses <see cref="ValueTask{TResult}"/>
+/// to minimize allocations when underlying accessors complete synchronously.</para>
 /// </remarks>
-/// <example>
-/// Registration in service collection:
-/// <code>
-/// // Register both required services
-/// services.AddHttpContextAccessor();
-/// services.Configure&lt;ServiceUserSettings&gt;(configuration.GetSection("ServiceUser"));
-/// 
-/// // Register the hybrid user accessor
-/// services.AddScoped&lt;IUserAccessor, HybridUserAccessor&gt;();
-/// </code>
-/// </example>
-/// <remarks>
-/// Initializes a new instance of the <see cref="HybridUserAccessor"/> class.
-/// </remarks>
-/// <param name="httpContextUserAccessor">The HTTP context-based user accessor.</param>
-/// <param name="daemonUserAccessor">The daemon user accessor for fallback.</param>
-/// <param name="logger">Optional logger for diagnostic information.</param>
 public class HybridUserAccessor(
-    HttpContextUserAccessor httpContextUserAccessor,
-    DaemonUserAccessor daemonUserAccessor,
-    ILogger<HybridUserAccessor>? logger = null): IUserAccessor {
-  private readonly HttpContextUserAccessor _HttpContextUserAccessor = httpContextUserAccessor ??
-        throw new ArgumentNullException(nameof(httpContextUserAccessor));
-  private readonly DaemonUserAccessor _DaemonUserAccessor = daemonUserAccessor ??
-        throw new ArgumentNullException(nameof(daemonUserAccessor));
+  HttpContextUserAccessor httpContextUserAccessor,
+  DaemonUserAccessor daemonUserAccessor,
+  ILogger<HybridUserAccessor>? logger = null): IUserAccessor {
+  private readonly HttpContextUserAccessor _HttpContextUserAccessor = httpContextUserAccessor
+    ?? throw new ArgumentNullException(nameof(httpContextUserAccessor));
+  private readonly DaemonUserAccessor _DaemonUserAccessor = daemonUserAccessor
+    ?? throw new ArgumentNullException(nameof(daemonUserAccessor));
   private readonly ILogger<HybridUserAccessor>? _Logger = logger;
 
-  /// <summary>
-  /// Gets information about the current user, attempting HTTP context first and falling back to daemon user.
-  /// </summary>
-  /// <returns>A <see cref="ValueTask{TResult}"/> containing the current <see cref="UserInfo"/>.</returns>
-  /// <remarks>
-  /// <para>
-  /// This method first attempts to retrieve the user from the current HTTP context. If that fails
-  /// because there is no authenticated user or no HTTP context is available, it falls back to
-  /// the daemon user.
-  /// </para>
-  /// <para>
-  /// This approach ensures that operations always have a valid user context for audit tracking
-  /// and other authorization purposes, regardless of how they were initiated.
-  /// </para>
-  /// </remarks>
+  /// <inheritdoc />
   public async ValueTask<UserInfo> GetCurrentUserInfoAsync() {
     try {
-      // First try to get the user from HTTP context
-      return await _HttpContextUserAccessor.GetCurrentUserInfoAsync();
-    } catch (Exception ex) when (ex is UnauthorizedAccessException ||
-                                 ex is InvalidOperationException) {
-      // Log the fallback if a logger is available
-      Log.FallingBackToDaemonUser(_Logger, ex);
-
-      // Fall back to the daemon user
-      return await _DaemonUserAccessor.GetCurrentUserInfoAsync();
-    }
-  }
-
-  private static class Log {
-    private static readonly Action<ILogger, Exception?> LogFallingBackToDaemonUser =
-        LoggerMessage.Define(LogLevel.Debug, new EventId(0, nameof(FallingBackToDaemonUser)),
-        "Falling back to daemon user because HTTP context user is not available.");
-
-    public static void FallingBackToDaemonUser(ILogger? logger, Exception? exception) {
-      if (logger is null) {
-        return;
-      }
-      LogFallingBackToDaemonUser(logger, exception);
+      return await _HttpContextUserAccessor.GetCurrentUserInfoAsync().ConfigureAwait(false);
+    } catch (Exception ex) when (ex is UnauthorizedAccessException or InvalidOperationException) {
+      _Logger?.LogFallbackToDaemonUser(ex);
+      return await _DaemonUserAccessor.GetCurrentUserInfoAsync().ConfigureAwait(false);
     }
   }
 }

@@ -5,108 +5,86 @@ using NSI.Core.Identity;
 using NSI.Domains;
 
 namespace NSI.AspNetCore.Identity;
+
 /// <summary>
-/// Implementation of <see cref="IUserAccessor"/> that retrieves user information from the current HTTP context.
+/// HTTP-context based <see cref="IUserAccessor"/> extracting identity from claims principal.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This class extracts user information from the current HTTP request's claims principal, making it suitable
-/// for web applications where users are authenticated through ASP.NET Core's authentication system.
+/// Resolves the current authenticated user from <see cref="HttpContext.User"/>. Intended for ASP.NET
+/// Core request pipelines where authentication middleware populates a claims principal.
 /// </para>
-/// <para>
-/// It requires the user to be authenticated and have specific claims:
+/// <para>Semantics:
 /// <list type="bullet">
-///   <item><description>A claim with type "sub" or "nameidentifier" for the user ID</description></item>
-///   <item><description>A claim with type "name" or "email" for the username</description></item>
-///   <item><description>A claim with type "given_name" or "name" for the display name</description></item>
+///   <item><description>Throws <see cref="UnauthorizedAccessException"/> when no authenticated user.</description></item>
+///   <item><description>Accepts multiple fallback claim types for Id, Username, Display name.</description></item>
+///   <item><description>Returns cached data per invocation (no ambient storage).</description></item>
+///   <item><description>Completes synchronously and wraps result in <see cref="ValueTask{TResult}"/>.</description></item>
 /// </list>
 /// </para>
-/// <para>
-/// This implementation should be registered as a scoped service to align with the HTTP request lifetime.
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Register as Scoped to align with request lifetime.</description></item>
+///   <item><description>Augment claims at authentication time for richer user metadata.</description></item>
+///   <item><description>Wrap accessor in decorators if additional caching / auditing required.</description></item>
+/// </list>
 /// </para>
+/// <para>Thread-safety: Stateless aside from injected accessor; safe within request scope. Not intended
+/// for cross-request reuse beyond DI lifetime semantics.</para>
+/// <para>Performance: O(n) in number of claims (linear scans over small arrays of preferred types).
+/// No heap allocations on hot path besides role array (if present) and resulting <see cref="UserInfo"/>.</para>
 /// </remarks>
-/// <example>
-/// Registration in service collection:
-/// <code>
-/// // Register in ASP.NET Core dependency injection
-/// services.AddHttpContextAccessor();
-/// services.AddScoped&lt;IUserAccessor, HttpContextUserAccessor&gt;();
-/// </code>
-/// </example>
 public class HttpContextUserAccessor: IUserAccessor {
+  private static readonly string[] IdClaimTypes = ["sub", ClaimTypes.NameIdentifier];
+  private static readonly string[] UsernameClaimTypes = [ClaimTypes.Name, "name", ClaimTypes.Email];
+  private static readonly string[] DisplayNameClaimTypes = ["given_name", ClaimTypes.GivenName, ClaimTypes.Name];
+
   private readonly IHttpContextAccessor _HttpContextAccessor;
 
-  /// <summary>
-  /// Initializes a new instance of the <see cref="HttpContextUserAccessor"/> class.
-  /// </summary>
-  /// <param name="httpContextAccessor">The HTTP context accessor service.</param>
-  /// <exception cref="ArgumentNullException">Thrown if <paramref name="httpContextAccessor"/> is null.</exception>
+  /// <summary>Creates accessor using provided HTTP context accessor.</summary>
+  /// <exception cref="ArgumentNullException">When <paramref name="httpContextAccessor"/> is null.</exception>
   public HttpContextUserAccessor(IHttpContextAccessor httpContextAccessor) {
     ArgumentNullException.ThrowIfNull(httpContextAccessor);
     _HttpContextAccessor = httpContextAccessor;
   }
 
-  /// <summary>
-  /// Gets information about the current user from the HTTP context asynchronously.
-  /// </summary>
-  /// <returns>A <see cref="ValueTask{TResult}"/> containing the current <see cref="UserInfo"/>.</returns>
-  /// <exception cref="UnauthorizedAccessException">Thrown when there is no authenticated user in the current HTTP context.</exception>
-  /// <remarks>
-  /// <para>
-  /// This method extracts user identity information from claims in the current HTTP context.
-  /// It requires the user to be authenticated and have the necessary claims to identify the user.
-  /// </para>
-  /// <para>
-  /// The implementation completes synchronously but returns a ValueTask to match the
-  /// contract of <see cref="IUserAccessor.GetCurrentUserInfoAsync"/>.
-  /// </para>
-  /// </remarks>
+  /// <inheritdoc />
   public ValueTask<UserInfo> GetCurrentUserInfoAsync() {
-    var user = _HttpContextAccessor.HttpContext?.User;
-
-    if (user == null || user.Identity?.IsAuthenticated != true) {
-      throw new UnauthorizedAccessException("No authenticated user found in the current HTTP context.");
+    var principal = _HttpContextAccessor.HttpContext?.User;
+    if (principal?.Identity?.IsAuthenticated != true) {
+      throw new UnauthorizedAccessException(
+        "No authenticated user found in the current HTTP context.");
     }
 
-    var userId = GetUserId(user);
-    var username = GetUsername(user);
-    var displayName = GetDisplayName(user, username);
-    var roles = GetRoles(user);
+    var userId = GetUserId(principal);
+    var username = GetFirstNonEmpty(principal, UsernameClaimTypes) ?? "Unknown";
+    var displayName = GetFirstNonEmpty(principal, DisplayNameClaimTypes) ?? username;
+    var roles = GetRoles(principal);
 
-    var userInfo = new UserInfo(
-        new UserId(userId),
-        username,
-        displayName,
-        true,
-        roles
-    );
-
-    return ValueTask.FromResult(userInfo);
+    var info = new UserInfo(new UserId(userId), username, displayName, true, roles);
+    return ValueTask.FromResult(info);
   }
 
   private static Guid GetUserId(ClaimsPrincipal user) {
-    var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier) ??
-                      user.FindFirst("sub");
-
-    if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, CultureInfo.InvariantCulture, out var userId)) {
+    var raw = GetFirstNonEmpty(user, IdClaimTypes) ?? string.Empty;
+    if (!Guid.TryParse(raw, CultureInfo.InvariantCulture, out var id)) {
       throw new UnauthorizedAccessException("User ID claim not found or invalid.");
     }
-
-    return userId;
+    return id;
   }
 
-  private static string GetUsername(ClaimsPrincipal user) => user.FindFirst(ClaimTypes.Name)?.Value ??
-             user.FindFirst("name")?.Value ??
-             user.FindFirst(ClaimTypes.Email)?.Value ??
-             "Unknown";
-
-  private static string GetDisplayName(ClaimsPrincipal user, string username) => user.FindFirst("given_name")?.Value ??
-             user.FindFirst(ClaimTypes.GivenName)?.Value ??
-             user.FindFirst(ClaimTypes.Name)?.Value ??
-             username;
+  private static string? GetFirstNonEmpty(ClaimsPrincipal user, string[] claimTypes) {
+    foreach (var type in claimTypes) {
+      var value = user.FindFirst(type)?.Value;
+      if (!string.IsNullOrWhiteSpace(value)) {
+        return value;
+      }
+    }
+    return null;
+  }
 
   private static string[] GetRoles(ClaimsPrincipal user) {
     var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
-    return roles.Length > 0 ? roles : [];
+    return roles.Length == 0 ? [] : roles;
   }
 }

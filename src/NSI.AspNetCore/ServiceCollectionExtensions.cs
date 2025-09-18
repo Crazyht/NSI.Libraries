@@ -3,138 +3,81 @@ using NSI.AspNetCore.Identity;
 using NSI.Core.Identity;
 
 namespace NSI.AspNetCore;
+
 /// <summary>
-/// Provides extension methods for <see cref="IServiceCollection"/> to register NSI services in ASP.NET Core applications.
+/// ASP.NET Core specific DI registration helpers for NSI identity abstractions.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This class contains extension methods that simplify the registration of NSI's infrastructure services
-/// with ASP.NET Core's dependency injection system. It offers different registration strategies for
-/// various application scenarios.
+/// Consolidates common identity service registrations to ensure consistent lifetimes
+/// and reduce boilerplate in host applications. Methods are additive and idempotent
+/// (safe to call multiple times during startup without harmful duplication).
 /// </para>
-/// <para>
-/// The extension methods provided by this class include:
+/// <para>Semantics:
 /// <list type="bullet">
-///   <item>
-///     <description><see cref="AddNsiIdentity"/>: Registers standard user identity services for web applications.</description>
-///   </item>
-///   <item>
-///     <description><see cref="AddHybridUserAccessor"/>: Registers a hybrid user accessor that works in both web and non-web contexts.</description>
-///   </item>
+///   <item><description><see cref="AddNsiIdentity"/> registers HTTP-context backed user accessor only.</description></item>
+///   <item><description><see cref="AddHybridUserAccessor"/> registers layered accessor (HTTP user → daemon fallback).</description></item>
+///   <item><description>Both methods always ensure <c>AddHttpContextAccessor()</c> is invoked.</description></item>
 /// </list>
 /// </para>
-/// <para>
-/// These methods help ensure consistent service registration across applications and reduce the
-/// boilerplate code needed to set up the NSI infrastructure.
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Use <see cref="AddNsiIdentity"/> for purely interactive web scenarios.</description></item>
+///   <item><description>Use <see cref="AddHybridUserAccessor"/> when background / out-of-request flows occur.</description></item>
+///   <item><description>Configure <see cref="ServiceUserSettings"/> before calling hybrid registration.</description></item>
+/// </list>
 /// </para>
+/// <para>Thread-safety: Intended for application startup single-threaded configuration. Not for
+/// dynamic runtime mutation after container build.</para>
+/// <para>Performance: Minimal overhead (a handful of service descriptor additions). No reflection
+/// or scanning operations executed here.</para>
 /// </remarks>
-/// <example>
-/// Using the extension methods in Startup.ConfigureServices:
-/// <code>
-/// public void ConfigureServices(IServiceCollection services)
-/// {
-///     // For web applications with authenticated users only
-///     services.AddNsiIdentity();
-///     
-///     // Or, for applications that need to work in both web and non-web contexts
-///     services.Configure&lt;ServiceUserSettings&gt;(Configuration.GetSection("ServiceUser"));
-///     services.AddHybridUserAccessor();
-///     
-///     // Other service registrations...
-/// }
-/// </code>
-/// </example>
 public static class ServiceCollectionExtensions {
   /// <summary>
-  /// Adds the necessary services for NSI Identity to the ASP.NET Core service collection.
+  /// Registers HTTP-context based user accessor (<see cref="HttpContextUserAccessor"/>).
   /// </summary>
-  /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
-  /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+  /// <param name="services">Target service collection (not null).</param>
+  /// <returns>The same service collection to enable fluent chaining.</returns>
+  /// <exception cref="ArgumentNullException">When <paramref name="services"/> is null.</exception>
   /// <remarks>
-  /// <para>
-  /// This method registers core identity services required for ASP.NET Core applications, including:
+  /// Adds:
   /// <list type="bullet">
-  ///   <item><description>HTTP context accessor for accessing the current HTTP context</description></item>
-  ///   <item><description>User accessor that retrieves user information from HTTP context claims</description></item>
+  ///   <item><description>HTTP context accessor registration.</description></item>
+  ///   <item><description><see cref="IUserAccessor"/> mapped to <see cref="HttpContextUserAccessor"/> (Scoped)</description></item>
   /// </list>
-  /// </para>
-  /// <para>
-  /// Use this method when your application only needs to access user information from authenticated
-  /// HTTP requests. For applications that also need to support non-interactive contexts,
-  /// consider using <see cref="AddHybridUserAccessor"/> instead.
-  /// </para>
+  /// Prefer this for strictly interactive APIs (no background execution needing a system identity).
   /// </remarks>
-  /// <example>
-  /// Registration in Startup.ConfigureServices:
-  /// <code>
-  /// public void ConfigureServices(IServiceCollection services)
-  /// {
-  ///     // Add standard identity services for web applications
-  ///     services.AddNsiIdentity();
-  ///     
-  ///     // Other service registrations...
-  /// }
-  /// </code>
-  /// </example>
   public static IServiceCollection AddNsiIdentity(this IServiceCollection services) {
-    // Register the HTTP context accessor
-    services.AddHttpContextAccessor();
-    // Register the user accessor
-    services.AddScoped<IUserAccessor, HttpContextUserAccessor>();
+    ArgumentNullException.ThrowIfNull(services);
 
+    services.AddHttpContextAccessor();
+    services.AddScoped<IUserAccessor, HttpContextUserAccessor>();
     return services;
   }
 
   /// <summary>
-  /// Adds a hybrid user accessor that tries to use HTTP context first and falls back to daemon user.
+  /// Registers hybrid user accessor that falls back to daemon/system identity when HTTP user absent.
   /// </summary>
-  /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
-  /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+  /// <param name="services">Target service collection (not null).</param>
+  /// <returns>The same service collection for fluent chaining.</returns>
+  /// <exception cref="ArgumentNullException">When <paramref name="services"/> is null.</exception>
   /// <remarks>
-  /// <para>
-  /// This method registers a hybrid <see cref="IUserAccessor"/> implementation that first attempts 
-  /// to get user information from the HTTP context, and if that fails, falls back to using 
-  /// a daemon user from configuration.
-  /// </para>
-  /// <para>
-  /// <strong>Important:</strong> This registration requires <see cref="ServiceUserSettings"/> to be configured 
-  /// via <c>services.Configure&lt;ServiceUserSettings&gt;()</c> for the fallback mechanism to work correctly.
-  /// </para>
-  /// <para>
-  /// This approach is useful for components that need to work in both web and non-web contexts,
-  /// ensuring there's always a valid user for audit tracking and authorization.
-  /// </para>
-  /// <para>
-  /// When using this method, do not register <see cref="HttpContextUserAccessor"/> or <see cref="DaemonUserAccessor"/>
-  /// directly as implementations of <see cref="IUserAccessor"/>, as they are registered internally.
-  /// </para>
+  /// Adds (if not already present):
+  /// <list type="bullet">
+  ///   <item><description>HTTP context accessor.</description></item>
+  ///   <item><description><see cref="HttpContextUserAccessor"/> (Scoped) for primary retrieval.</description></item>
+  ///   <item><description><see cref="DaemonUserAccessor"/> (Singleton) as system identity provider.</description></item>
+  ///   <item><description><see cref="IUserAccessor"/> mapped to <see cref="HybridUserAccessor"/> (Scoped).</description></item>
+  /// </list>
+  /// Ensure <see cref="ServiceUserSettings"/> is configured (via <c>services.Configure&lt;ServiceUserSettings&gt;(...)</c>).
   /// </remarks>
-  /// <example>
-  /// Registration in Startup.ConfigureServices:
-  /// <code>
-  /// public void ConfigureServices(IServiceCollection services)
-  /// {
-  ///     // Configure service user settings - required for daemon user fallback
-  ///     services.Configure&lt;ServiceUserSettings&gt;(Configuration.GetSection("ServiceUser"));
-  ///     
-  ///     // Add hybrid user accessor that falls back to daemon user when needed
-  ///     services.AddHybridUserAccessor();
-  ///     
-  ///     // Other service registrations...
-  /// }
-  /// </code>
-  /// </example>
   public static IServiceCollection AddHybridUserAccessor(this IServiceCollection services) {
-    // Register the HTTP context accessor
-    services.AddHttpContextAccessor();
+    ArgumentNullException.ThrowIfNull(services);
 
-    // Register the required user accessors internally
+    services.AddHttpContextAccessor();
     services.AddScoped<HttpContextUserAccessor>();
     services.AddSingleton<DaemonUserAccessor>();
-
-    // Register the hybrid user accessor as the IUserAccessor implementation
     services.AddScoped<IUserAccessor, HybridUserAccessor>();
-
     return services;
   }
 }

@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
@@ -30,7 +29,10 @@ public partial class LogEntryEnumerableExtensionsTests {
 
     // Add scope lifecycle
     entries.AddRange(LogEntryFactory.CreateScopeLifecycle(
-      variables: new Dictionary<string, object> { { "UserId", 42 }, { "Operation", "ProcessOrder" } }));
+      variables: new Dictionary<string, object> {
+        { "UserId", 42 },
+        { "Operation", "ProcessOrder" }
+      }));
 
     // Add nested scopes
     entries.AddRange(LogEntryFactory.CreateNestedScopes(depth: 2));
@@ -140,7 +142,9 @@ public partial class LogEntryEnumerableExtensionsTests {
     var result = _TestEntries.WithMessageContains("Processing").ToList();
 
     // Verify correct filtering
-    Assert.All(result, entry => Assert.Contains("Processing", entry.Message ?? "", StringComparison.Ordinal));
+    Assert.All(
+      result,
+      entry => Assert.Contains("Processing", entry.Message ?? "", StringComparison.Ordinal));
     Assert.True(result.Count >= 2); // Should find "Processing started" and "Processing completed"
   }
 
@@ -150,7 +154,9 @@ public partial class LogEntryEnumerableExtensionsTests {
     var caseInsensitive = _TestEntries.WithMessageContains("DATABASE").ToList();
 
     // Test case-sensitive
-    var caseSensitive = _TestEntries.WithMessageContains("DATABASE", StringComparison.Ordinal).ToList();
+    var caseSensitive = _TestEntries
+      .WithMessageContains("DATABASE", StringComparison.Ordinal)
+      .ToList();
 
     // Verify case handling
     Assert.True(caseInsensitive.Count > 0); // Should find "Database" with case-insensitive
@@ -163,7 +169,9 @@ public partial class LogEntryEnumerableExtensionsTests {
     var result = _TestEntries.WithMessageStartsWith("Processing").ToList();
 
     // Verify correct filtering
-    Assert.All(result, entry => Assert.StartsWith("Processing", entry.Message ?? "", StringComparison.Ordinal));
+    Assert.All(
+      result,
+      entry => Assert.StartsWith("Processing", entry.Message ?? "", StringComparison.Ordinal));
     Assert.True(result.Count >= 2);
   }
 
@@ -173,7 +181,9 @@ public partial class LogEntryEnumerableExtensionsTests {
     var result = _TestEntries.WithMessageEndsWith("failed").ToList();
 
     // Verify correct filtering
-    Assert.All(result, entry => Assert.EndsWith("failed", entry.Message ?? "", StringComparison.Ordinal));
+    Assert.All(
+      result,
+      entry => Assert.EndsWith("failed", entry.Message ?? "", StringComparison.Ordinal));
     Assert.True(result.Count > 0);
   }
 
@@ -380,8 +390,9 @@ public partial class LogEntryEnumerableExtensionsTests {
     var entries = new List<LogEntry> {
       LogEntryFactory.CreateLogEntry(exception: new InvalidOperationException("Invalid op")),
       LogEntryFactory.CreateLogEntry(exception: new ArgumentException("Bad arg")),
-      LogEntryFactory.CreateLogEntry(exception: new InvalidOperationException("Another invalid op")),
-      LogEntryFactory.CreateLogEntry() // No exception
+      LogEntryFactory.CreateLogEntry(
+        exception: new InvalidOperationException("Another invalid op")),
+      LogEntryFactory.CreateLogEntry()
     };
 
     // Execute filter
@@ -397,15 +408,17 @@ public partial class LogEntryEnumerableExtensionsTests {
     // Create test entries with exception inheritance
     var entries = new List<LogEntry> {
       LogEntryFactory.CreateLogEntry(exception: new ArgumentException("Arg exception")),
-      LogEntryFactory.CreateLogEntry(exception: new ArgumentNullException("Null arg")), // Derives from ArgumentException
-      LogEntryFactory.CreateLogEntry(exception: new InvalidOperationException("Invalid op"))
+      LogEntryFactory.CreateLogEntry(
+        exception: new ArgumentNullException("Null arg")),
+      LogEntryFactory.CreateLogEntry(
+        exception: new InvalidOperationException("Invalid op"))
     };
 
     // Execute filter
     var result = entries.WithException<ArgumentException>().ToList();
 
     // Verify inheritance handling
-    Assert.Equal(2, result.Count); // Should include both ArgumentException and ArgumentNullException
+    Assert.Equal(2, result.Count);
     Assert.All(result, entry => Assert.True(entry.Exception is ArgumentException));
   }
 
@@ -432,7 +445,11 @@ public partial class LogEntryEnumerableExtensionsTests {
 
     // Verify ordering
     for (var i = 1; i < result.Count; i++) {
-      Assert.True(string.Compare(result[i - 1].Message, result[i].Message, StringComparison.Ordinal) <= 0);
+      Assert.True(
+        string.Compare(
+          result[i - 1].Message,
+          result[i].Message,
+          StringComparison.Ordinal) <= 0);
     }
   }
 
@@ -442,7 +459,11 @@ public partial class LogEntryEnumerableExtensionsTests {
     var result = _TestEntries
       .LogsOnly()
       .GroupBy(e => e.Level)
-      .Select(g => new { Level = g.Key, Count = g.Count(), Messages = g.Select(e => e.Message).ToList() })
+      .Select(g => new {
+        Level = g.Key,
+        Count = g.Count(),
+        Messages = g.Select(e => e.Message).ToList()
+      })
       .OrderBy(x => x.Level)
       .ToList();
 
@@ -487,9 +508,12 @@ public partial class LogEntryEnumerableExtensionsTests {
 
     // Verify complex query execution
     Assert.True(result.Count > 0);
-    Assert.All(result, entry => Assert.True(entry.Level == LogLevel.Error ||
-                 entry.Level == LogLevel.Critical ||
-                 entry.Level == LogLevel.Warning));
+    Assert.All(
+      result,
+      entry => Assert.True(
+        entry.Level == LogLevel.Error
+          || entry.Level == LogLevel.Critical
+          || entry.Level == LogLevel.Warning));
   }
 
   #endregion
@@ -507,22 +531,30 @@ public partial class LogEntryEnumerableExtensionsTests {
     Assert.Throws<ArgumentNullException>(() => nullSource.ScopeEndsOnly().ToList());
 
     // Level filters
-    Assert.Throws<ArgumentNullException>(() => nullSource.WithLogLevel(LogLevel.Information).ToList());
+    Assert.Throws<ArgumentNullException>(
+      () => nullSource.WithLogLevel(LogLevel.Information).ToList());
 
     // Message filters
-    Assert.Throws<ArgumentNullException>(() => nullSource.WithMessageContains("test").ToList());
-    Assert.Throws<ArgumentNullException>(() => nullSource.WithMessageStartsWith("test").ToList());
-    Assert.Throws<ArgumentNullException>(() => nullSource.WithMessageEndsWith("test").ToList());
-    Assert.Throws<ArgumentNullException>(() => nullSource.WithMessageMatch(TestRegex()).ToList());
+    Assert.Throws<ArgumentNullException>(
+      () => nullSource.WithMessageContains("test").ToList());
+    Assert.Throws<ArgumentNullException>(
+      () => nullSource.WithMessageStartsWith("test").ToList());
+    Assert.Throws<ArgumentNullException>(
+      () => nullSource.WithMessageEndsWith("test").ToList());
+    Assert.Throws<ArgumentNullException>(
+      () => nullSource.WithMessageMatch(TestRegex()).ToList());
 
     // Context filters
-    Assert.Throws<ArgumentNullException>(() => nullSource.WithinScope(Guid.NewGuid()).ToList());
-    Assert.Throws<ArgumentNullException>(() => nullSource.WithParentScope(Guid.NewGuid()).ToList());
+    Assert.Throws<ArgumentNullException>(
+      () => nullSource.WithinScope(Guid.NewGuid()).ToList());
+    Assert.Throws<ArgumentNullException>(
+      () => nullSource.WithParentScope(Guid.NewGuid()).ToList());
     Assert.Throws<ArgumentNullException>(() => nullSource.WithoutScope().ToList());
 
     // Exception filters
     Assert.Throws<ArgumentNullException>(() => nullSource.WithException().ToList());
-    Assert.Throws<ArgumentNullException>(() => nullSource.WithException<Exception>().ToList());
+    Assert.Throws<ArgumentNullException>(
+      () => nullSource.WithException<Exception>().ToList());
   }
 
   [Fact]
@@ -577,7 +609,7 @@ public partial class LogEntryEnumerableExtensionsTests {
     var largeDataSet = new List<LogEntry>();
     for (var i = 0; i < 10000; i++) {
       largeDataSet.Add(LogEntryFactory.CreateLogEntry(
-        level: (LogLevel)((i % 6) + 1), // Cycle through log levels
+        level: (LogLevel)((i % 6) + 1),
         message: $"Message {i}"));
     }
 
@@ -595,7 +627,8 @@ public partial class LogEntryEnumerableExtensionsTests {
 
     // Verify performance and correctness
     Assert.True(result.Count > 0);
-    Assert.True(stopwatch.ElapsedMilliseconds < 100,
+    Assert.True(
+      stopwatch.ElapsedMilliseconds < 100,
       $"Large dataset query took {stopwatch.ElapsedMilliseconds}ms, expected < 100ms");
   }
 
@@ -614,18 +647,37 @@ public partial class LogEntryEnumerableExtensionsTests {
       { "RequestId", "REQ-001" },
       { "UserId", 12345 }
     })) {
-      logger.Log(LogLevel.Information, new EventId(1), "Request started", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId(1),
+        "Request started",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       using (var dbScope = logger.BeginScope(new Dictionary<string, object> {
         { "Operation", "DatabaseQuery" },
         { "Table", "Users" }
       })) {
-        logger.Log(LogLevel.Warning, new EventId(2), "Query took longer than expected: 2500ms", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
-        logger.Log(LogLevel.Error, new EventId(3), "Database connection timeout",
-          new TimeoutException("Connection timeout"), (s, ex) => $"{s}: {ex?.Message}");
+        logger.Log(
+          LogLevel.Warning,
+          new EventId(2),
+          "Query took longer than expected: 2500ms",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+        logger.Log(
+          LogLevel.Error,
+          new EventId(3),
+          "Database connection timeout",
+          new TimeoutException("Connection timeout"),
+          (s, ex) => $"{s}: {ex?.Message}");
       }
 
-      logger.Log(LogLevel.Critical, new EventId(4), "Request failed due to database issues", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Critical,
+        new EventId(4),
+        "Request failed due to database issues",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     // Execute real-world analysis query
@@ -659,28 +711,58 @@ public partial class LogEntryEnumerableExtensionsTests {
       { "SessionId", "SESS-123" },
       { "UserId", 42 }
     })) {
-      logger.Log(LogLevel.Information, new EventId(1), "User session started", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId(1),
+        "User session started",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       using (var pageScope = logger.BeginScope(new Dictionary<string, object> {
         { "Page", "ProductCatalog" },
         { "Action", "Browse" }
       })) {
-        logger.Log(LogLevel.Debug, new EventId(2), "Loading product catalog", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
-        logger.Log(LogLevel.Information, new EventId(3), "Displayed 50 products", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+        logger.Log(
+          LogLevel.Debug,
+          new EventId(2),
+          "Loading product catalog",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+        logger.Log(
+          LogLevel.Information,
+          new EventId(3),
+          "Displayed 50 products",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
         using var actionScope = logger.BeginScope(new Dictionary<string, object> {
           { "ProductId", "PROD-789" },
           { "Action", "AddToCart" }
         });
-        logger.Log(LogLevel.Information, new EventId(4), "Product added to cart", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+        logger.Log(
+          LogLevel.Information,
+          new EventId(4),
+          "Product added to cart",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
       }
 
       using var checkoutScope = logger.BeginScope(new Dictionary<string, object> {
         { "Page", "Checkout" },
         { "Step", "Payment" }
       });
-      logger.Log(LogLevel.Information, new EventId(5), "Payment processing started", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
-      logger.Log(LogLevel.Information, new EventId(6), "Payment completed successfully", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId(5),
+        "Payment processing started",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId(6),
+        "Payment completed successfully",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     // Execute user journey analysis - CORRECTION ICI
@@ -694,7 +776,9 @@ public partial class LogEntryEnumerableExtensionsTests {
     // Récupérer tous les logs dans la hiérarchie complète du scope utilisateur
     var userJourney = store.GetAll()
       .LogsOnly()
-      .Where(log => log.ScopeId.HasValue && IsWithinUserSession(store, log.ScopeId.Value, userSessionScope.ScopeId!.Value))
+      .Where(log =>
+        log.ScopeId.HasValue
+          && IsWithinUserSession(store, log.ScopeId.Value, userSessionScope.ScopeId!.Value))
       .OrderBy(e => e.EventId?.Id ?? 0)
       .Select(e => e.Message)
       .ToList();
@@ -709,7 +793,11 @@ public partial class LogEntryEnumerableExtensionsTests {
   /// <summary>
   /// Helper method to check if a scope is within the user session hierarchy.
   /// </summary>
-  private static bool IsWithinUserSession(InMemoryLogEntryStore store, Guid scopeId, Guid userSessionScopeId) {
+  private static bool IsWithinUserSession(
+    InMemoryLogEntryStore store,
+    Guid scopeId,
+    Guid userSessionScopeId) {
+
     if (scopeId == userSessionScopeId) {
       return true;
     }
@@ -734,13 +822,16 @@ public partial class LogEntryEnumerableExtensionsTests {
   /// Helper class for testing lazy evaluation behavior.
   /// </summary>
   private sealed class ThrowingEnumerable<T>: IEnumerable<T> {
-    public IEnumerator<T> GetEnumerator() => throw new InvalidOperationException("This enumerable always throws when enumerated");
+    public IEnumerator<T> GetEnumerator() => throw new InvalidOperationException(
+      "This enumerable always throws when enumerated");
 
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() =>
+      GetEnumerator();
   }
 
   [GeneratedRegex(@"user-\d+", RegexOptions.IgnoreCase, "en-DE")]
   private static partial Regex UserIdRegex();
+
   [GeneratedRegex("test")]
   private static partial Regex TestRegex();
 }

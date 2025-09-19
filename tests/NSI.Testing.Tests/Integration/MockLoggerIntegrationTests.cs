@@ -5,7 +5,8 @@ using NSI.Testing.Loggers;
 
 namespace NSI.Testing.Tests.Integration;
 /// <summary>
-/// Integration tests for the MockLogger system with dependency injection and real-world scenarios.
+/// Integration tests for the MockLogger system with dependency injection and real-world
+/// scenarios.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,7 +20,8 @@ public class MockLoggerIntegrationTests {
   /// Test service that uses ILogger for integration testing.
   /// </summary>
   private sealed class TestService(ILogger<MockLoggerIntegrationTests.TestService> logger) {
-    private readonly ILogger<TestService> _Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly ILogger<TestService> _Logger =
+      logger ?? throw new ArgumentNullException(nameof(logger));
 
     public void ProcessOrder(int orderId, string customerName) {
       using var scope = _Logger.BeginScope(new Dictionary<string, object> {
@@ -28,13 +30,23 @@ public class MockLoggerIntegrationTests {
         { "Operation", "ProcessOrder" }
       });
 
-      _Logger.Log(LogLevel.Information, new EventId(100), "Order processing started", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(100),
+        "Order processing started",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       ValidateOrder(orderId);
       ProcessPayment(orderId);
       ShipOrder(orderId);
 
-      _Logger.Log(LogLevel.Information, new EventId(199), "Order processing completed", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(199),
+        "Order processing completed",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     private void ValidateOrder(int orderId) {
@@ -43,15 +55,29 @@ public class MockLoggerIntegrationTests {
         { "OrderId", orderId }
       });
 
-      _Logger.Log(LogLevel.Debug, new EventId(101), "Validating order details", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Debug,
+        new EventId(101),
+        "Validating order details",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       if (orderId <= 0) {
-        _Logger.Log(LogLevel.Error, new EventId(102), "Invalid order ID",
-          new ArgumentException("Order ID must be positive"), (s, ex) => $"{s}: {ex?.Message}");
+        _Logger.Log(
+          LogLevel.Error,
+          new EventId(102),
+          "Invalid order ID",
+          new ArgumentException("Order ID must be positive"),
+          (s, ex) => $"{s}: {ex?.Message}");
         throw new ArgumentException("Order ID must be positive");
       }
 
-      _Logger.Log(LogLevel.Information, new EventId(103), "Order validation completed", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(103),
+        "Order validation completed",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     private void ProcessPayment(int orderId) {
@@ -60,19 +86,33 @@ public class MockLoggerIntegrationTests {
         { "OrderId", orderId }
       });
 
-      _Logger.Log(LogLevel.Information, new EventId(110), "Processing payment", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(110),
+        "Processing payment",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       // Simulate payment processing
       Thread.Sleep(5); // Small delay to simulate work
 
       if (orderId == 999) {
         // Simulate payment failure
-        _Logger.Log(LogLevel.Error, new EventId(111), "Payment processing failed",
-          new InvalidOperationException("Payment gateway timeout"), (s, ex) => $"{s}: {ex?.Message}");
+        _Logger.Log(
+          LogLevel.Error,
+          new EventId(111),
+          "Payment processing failed",
+          new InvalidOperationException("Payment gateway timeout"),
+          (s, ex) => $"{s}: {ex?.Message}");
         throw new InvalidOperationException("Payment gateway timeout");
       }
 
-      _Logger.Log(LogLevel.Information, new EventId(119), "Payment processed successfully", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(119),
+        "Payment processed successfully",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     private void ShipOrder(int orderId) {
@@ -81,8 +121,18 @@ public class MockLoggerIntegrationTests {
         { "OrderId", orderId }
       });
 
-      _Logger.Log(LogLevel.Information, new EventId(120), "Preparing order for shipping", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
-      _Logger.Log(LogLevel.Information, new EventId(121), "Order shipped", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(120),
+        "Preparing order for shipping",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(121),
+        "Order shipped",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     public async Task ProcessOrderAsync(int orderId, string customerName) {
@@ -92,13 +142,23 @@ public class MockLoggerIntegrationTests {
         { "Operation", "ProcessOrderAsync" }
       });
 
-      _Logger.Log(LogLevel.Information, new EventId(200), "Async order processing started", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(200),
+        "Async order processing started",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       await ValidateOrderAsync(orderId);
       await ProcessPaymentAsync(orderId);
       await ShipOrderAsync(orderId);
 
-      _Logger.Log(LogLevel.Information, new EventId(299), "Async order processing completed", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(299),
+        "Async order processing completed",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     private async Task ValidateOrderAsync(int orderId) {
@@ -107,11 +167,21 @@ public class MockLoggerIntegrationTests {
         { "OrderId", orderId }
       });
 
-      _Logger.Log(LogLevel.Debug, new EventId(201), "Starting Async validation", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Debug,
+        new EventId(201),
+        "Starting Async validation",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       await Task.Delay(10); // Simulate async work
 
-      _Logger.Log(LogLevel.Information, new EventId(202), "Async validation completed", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(202),
+        "Async validation completed",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     private async Task ProcessPaymentAsync(int orderId) {
@@ -120,11 +190,21 @@ public class MockLoggerIntegrationTests {
         { "OrderId", orderId }
       });
 
-      _Logger.Log(LogLevel.Information, new EventId(210), "Starting async payment", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(210),
+        "Starting async payment",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       await Task.Delay(15); // Simulate async payment processing
 
-      _Logger.Log(LogLevel.Information, new EventId(211), "Async payment completed", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(211),
+        "Async payment completed",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     private async Task ShipOrderAsync(int orderId) {
@@ -133,11 +213,21 @@ public class MockLoggerIntegrationTests {
         { "OrderId", orderId }
       });
 
-      _Logger.Log(LogLevel.Information, new EventId(220), "Starting async shipping", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(220),
+        "Starting async shipping",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       await Task.Delay(5); // Simulate async shipping
 
-      _Logger.Log(LogLevel.Information, new EventId(221), "Async shipping completed", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(221),
+        "Async shipping completed",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
   }
 
@@ -145,7 +235,8 @@ public class MockLoggerIntegrationTests {
   /// Another test service for multi-logger scenarios.
   /// </summary>
   private sealed class NotificationService(ILogger<NotificationService> logger) {
-    private readonly ILogger<NotificationService> _Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly ILogger<NotificationService> _Logger =
+      logger ?? throw new ArgumentNullException(nameof(logger));
 
     public void SendNotification(string recipient) {
       using var scope = _Logger.BeginScope(new Dictionary<string, object> {
@@ -153,16 +244,30 @@ public class MockLoggerIntegrationTests {
         { "NotificationType", "Email" }
       });
 
-      _Logger.Log(LogLevel.Information, new EventId(300), "Sending notification", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(300),
+        "Sending notification",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       // Simulate notification sending
       if (string.IsNullOrEmpty(recipient)) {
-        _Logger.Log(LogLevel.Error, new EventId(301), "Invalid recipient",
-          new ArgumentException("Recipient cannot be empty"), (s, ex) => $"{s}: {ex?.Message}");
+        _Logger.Log(
+          LogLevel.Error,
+          new EventId(301),
+          "Invalid recipient",
+          new ArgumentException("Recipient cannot be empty"),
+          (s, ex) => $"{s}: {ex?.Message}");
         return;
       }
 
-      _Logger.Log(LogLevel.Information, new EventId(302), "Notification sent successfully", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(302),
+        "Notification sent successfully",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
   }
 
@@ -187,8 +292,12 @@ public class MockLoggerIntegrationTests {
     Assert.True(entries.Count > 0);
 
     var logEntries = entries.LogsOnly().ToList();
-    Assert.Contains(logEntries, e => e.Message?.Contains("Order processing started", StringComparison.Ordinal) == true);
-    Assert.Contains(logEntries, e => e.Message?.Contains("Order processing completed", StringComparison.Ordinal) == true);
+    Assert.Contains(
+      logEntries,
+      e => e.Message?.Contains("Order processing started", StringComparison.Ordinal) == true);
+    Assert.Contains(
+      logEntries,
+      e => e.Message?.Contains("Order processing completed", StringComparison.Ordinal) == true);
   }
 
   [Fact]
@@ -207,8 +316,12 @@ public class MockLoggerIntegrationTests {
     var logEntries = entries.LogsOnly().ToList();
 
     // Should have entries from both services
-    Assert.Contains(logEntries, e => e.Message?.Contains("Order processing", StringComparison.Ordinal) == true);
-    Assert.Contains(logEntries, e => e.Message?.Contains("Notification sent", StringComparison.Ordinal) == true);
+    Assert.Contains(
+      logEntries,
+      e => e.Message?.Contains("Order processing", StringComparison.Ordinal) == true);
+    Assert.Contains(
+      logEntries,
+      e => e.Message?.Contains("Notification sent", StringComparison.Ordinal) == true);
 
     // Verify scope separation
     var scopes = entries.ScopeStartsOnly().ToList();
@@ -242,7 +355,8 @@ public class MockLoggerIntegrationTests {
     Assert.Equal(3, nestedScopes.Count); // Validation, Payment, Shipping
 
     // Verify step scopes
-    var validationScope = nestedScopes.WithScopeContainingVar("Step", "Validation").First();
+    var validationScope =
+      nestedScopes.WithScopeContainingVar("Step", "Validation").First();
     var paymentScope = nestedScopes.WithScopeContainingVar("Step", "Payment").First();
     var shippingScope = nestedScopes.WithScopeContainingVar("Step", "Shipping").First();
 
@@ -250,9 +364,18 @@ public class MockLoggerIntegrationTests {
     Assert.NotEqual(paymentScope.ScopeId, shippingScope.ScopeId);
 
     // Verify logs are properly scoped
-    var validationLogs = entries.WithinScope(validationScope.ScopeId!.Value).LogsOnly().ToList();
-    var paymentLogs = entries.WithinScope(paymentScope.ScopeId!.Value).LogsOnly().ToList();
-    var shippingLogs = entries.WithinScope(shippingScope.ScopeId!.Value).LogsOnly().ToList();
+    var validationLogs = entries
+      .WithinScope(validationScope.ScopeId!.Value)
+      .LogsOnly()
+      .ToList();
+    var paymentLogs = entries
+      .WithinScope(paymentScope.ScopeId!.Value)
+      .LogsOnly()
+      .ToList();
+    var shippingLogs = entries
+      .WithinScope(shippingScope.ScopeId!.Value)
+      .LogsOnly()
+      .ToList();
 
     Assert.True(validationLogs.Count >= 2);
     Assert.True(paymentLogs.Count >= 2);
@@ -280,7 +403,10 @@ public class MockLoggerIntegrationTests {
     var errorEntry = errorEntries[0];
     Assert.NotNull(errorEntry.Exception);
     Assert.IsType<ArgumentException>(errorEntry.Exception);
-    Assert.Contains("Invalid order ID", errorEntry.Message ?? "", StringComparison.Ordinal);
+    Assert.Contains(
+      "Invalid order ID",
+      errorEntry.Message ?? string.Empty,
+      StringComparison.Ordinal);
 
     // Verify error occurred in validation scope
     Assert.NotNull(errorEntry.ScopeId);
@@ -329,8 +455,12 @@ public class MockLoggerIntegrationTests {
     Assert.All(asyncLogs, log => Assert.NotNull(log.ScopeId));
 
     // Verify scope hierarchy is maintained across async calls
-    var validationScope = asyncScopes.WithScopeContainingVar("Step", "AsyncValidation").First();
-    var validationLogs = entries.WithinScope(validationScope.ScopeId!.Value).LogsOnly().ToList();
+    var validationScope =
+      asyncScopes.WithScopeContainingVar("Step", "AsyncValidation").First();
+    var validationLogs = entries
+      .WithinScope(validationScope.ScopeId!.Value)
+      .LogsOnly()
+      .ToList();
 
     Assert.True(validationLogs.Count >= 2);
     Assert.All(validationLogs, log => Assert.Equal(validationScope.ScopeId, log.ScopeId));
@@ -370,9 +500,16 @@ public class MockLoggerIntegrationTests {
 
     // Verify each scope has complete workflow
     foreach (var scope in mainScopes) {
-      var scopeLogs = entries.WithinScope(scope.ScopeId!.Value).LogsOnly().ToList();
-      Assert.Contains(scopeLogs, log => log.Message?.Contains("Order processing started", StringComparison.Ordinal) == true);
-      Assert.Contains(scopeLogs, log => log.Message?.Contains("Order processing completed", StringComparison.Ordinal) == true);
+      var scopeLogs = entries
+        .WithinScope(scope.ScopeId!.Value)
+        .LogsOnly()
+        .ToList();
+      Assert.Contains(
+        scopeLogs,
+        log => log.Message?.Contains("Order processing started", StringComparison.Ordinal) == true);
+      Assert.Contains(
+        scopeLogs,
+        log => log.Message?.Contains("Order processing completed", StringComparison.Ordinal) == true);
     }
   }
 
@@ -393,9 +530,9 @@ public class MockLoggerIntegrationTests {
     // Verify comprehensive workflow analysis
     Assert.True(analysisResult.TotalLogEntries > 0);
     Assert.True(analysisResult.TotalScopes > 0);
-    Assert.True(analysisResult.ProcessingSteps.Count >= 3); // Validation, Payment, Shipping
+    Assert.True(analysisResult.ProcessingSteps.Count >= 3);
     Assert.True(analysisResult.NotificationsSent > 0);
-    Assert.Equal(0, analysisResult.ErrorsEncountered); // No errors in successful workflow
+    Assert.Equal(0, analysisResult.ErrorsEncountered);
 
     // Verify workflow timing analysis
     Assert.True(analysisResult.WorkflowDuration.HasValue);
@@ -411,7 +548,8 @@ public class MockLoggerIntegrationTests {
     var orderService = new TestService(new MockLogger<TestService>(store));
 
     // Execute operation that will fail at payment
-    Assert.Throws<InvalidOperationException>(() => orderService.ProcessOrder(999, "Failed Payment Customer"));
+    Assert.Throws<InvalidOperationException>(() =>
+      orderService.ProcessOrder(999, "Failed Payment Customer"));
 
     // Analyze error scenario
     var errorAnalysis = AnalyzeOrderErrors(store);
@@ -420,7 +558,9 @@ public class MockLoggerIntegrationTests {
     Assert.True(errorAnalysis.TotalErrors > 0);
     Assert.Contains(errorAnalysis.ErrorsByStep, kvp => kvp.Key == "Payment");
     Assert.Contains("InvalidOperationException", errorAnalysis.ExceptionTypes);
-    Assert.Contains(errorAnalysis.ErrorMessages, msg => msg.Contains("Payment processing failed", StringComparison.Ordinal));
+    Assert.Contains(
+      errorAnalysis.ErrorMessages,
+      msg => msg.Contains("Payment processing failed", StringComparison.Ordinal));
 
     // Verify partial workflow completion
     Assert.Contains("Validation", errorAnalysis.CompletedSteps);
@@ -448,10 +588,11 @@ public class MockLoggerIntegrationTests {
 
     // Verify performance characteristics
     var entries = store.GetAll();
-    Assert.True(entries.Count > operationCount * 5); // Each operation generates multiple log entries
+    Assert.True(entries.Count > operationCount * 5);
 
     // Performance should be reasonable
-    Assert.True(stopwatch.ElapsedMilliseconds < 5000,
+    Assert.True(
+      stopwatch.ElapsedMilliseconds < 5000,
       $"High-volume logging took {stopwatch.ElapsedMilliseconds}ms, expected < 5000ms");
 
     // Verify LINQ query performance on large dataset
@@ -468,7 +609,8 @@ public class MockLoggerIntegrationTests {
 
     queryStopwatch.Stop();
 
-    Assert.True(queryStopwatch.ElapsedMilliseconds < 100,
+    Assert.True(
+      queryStopwatch.ElapsedMilliseconds < 100,
       $"LINQ query on large dataset took {queryStopwatch.ElapsedMilliseconds}ms, expected < 100ms");
     Assert.True(performanceAnalysis.Count > 0);
   }
@@ -498,15 +640,25 @@ public class MockLoggerIntegrationTests {
     var logEntries = entries.LogsOnly().ToList();
 
     // Should have logs from both services
-    var orderLogs = logEntries.Where(e => e.Message?.Contains("Order", StringComparison.Ordinal) == true).ToList();
-    var notificationLogs = logEntries.Where(e => e.Message?.Contains("Notification", StringComparison.Ordinal) == true).ToList();
+    var orderLogs = logEntries
+      .Where(e => e.Message?.Contains("Order", StringComparison.Ordinal) == true)
+      .ToList();
+    var notificationLogs = logEntries
+      .Where(e => e.Message?.Contains("Notification", StringComparison.Ordinal) == true)
+      .ToList();
 
     Assert.True(orderLogs.Count > 0);
     Assert.True(notificationLogs.Count > 0);
 
     // Verify scopes are properly isolated despite shared store
-    var orderScopes = entries.ScopeStartsOnly().WithScopeContainingVar("Operation", "ProcessOrder").ToList();
-    var notificationScopes = entries.ScopeStartsOnly().WithScopeContainingKey("Recipient").ToList();
+    var orderScopes = entries
+      .ScopeStartsOnly()
+      .WithScopeContainingVar("Operation", "ProcessOrder")
+      .ToList();
+    var notificationScopes = entries
+      .ScopeStartsOnly()
+      .WithScopeContainingKey("Recipient")
+      .ToList();
 
     Assert.True(orderScopes.Count > 0);
     Assert.True(notificationScopes.Count > 0);
@@ -528,12 +680,20 @@ public class MockLoggerIntegrationTests {
         .ScopeStartsOnly()
         .WithScopeContainingKey("Step")
         .Select(scope => new ProcessingStep {
-          StepName = scope.State.OfType<KeyValuePair<string, object>>()
-            .First(kv => kv.Key == "Step").Value.ToString() ?? "Unknown",
-          LogCount = entries.WithinScope(scope.ScopeId!.Value).LogsOnly().Count()
+          StepName = scope.State
+            .OfType<KeyValuePair<string, object>>()
+            .First(kv => kv.Key == "Step")
+            .Value
+            .ToString() ?? "Unknown",
+          LogCount = entries
+            .WithinScope(scope.ScopeId!.Value)
+            .LogsOnly()
+            .Count()
         })],
-      NotificationsSent = entries.LogsOnly()
-        .Count(e => e.Message?.Contains("Notification sent", StringComparison.Ordinal) == true),
+      NotificationsSent = entries
+        .LogsOnly()
+        .Count(e =>
+          e.Message?.Contains("Notification sent", StringComparison.Ordinal) == true),
       ErrorsEncountered = entries.LogsOnly().WithException().Count()
     };
 
@@ -541,8 +701,10 @@ public class MockLoggerIntegrationTests {
     var firstEvent = entries.LogsOnly().MinBy(e => e.EventId?.Id ?? 0);
     var lastEvent = entries.LogsOnly().MaxBy(e => e.EventId?.Id ?? 0);
 
-    if (firstEvent != null && lastEvent != null && firstEvent.EventId.HasValue && lastEvent.EventId.HasValue) {
-      analysis.WorkflowDuration = TimeSpan.FromMilliseconds((lastEvent.EventId.Value.Id - firstEvent.EventId.Value.Id) * 10);
+    if (firstEvent != null && lastEvent != null &&
+        firstEvent.EventId.HasValue && lastEvent.EventId.HasValue) {
+      analysis.WorkflowDuration = TimeSpan.FromMilliseconds(
+        (lastEvent.EventId.Value.Id - firstEvent.EventId.Value.Id) * 10);
     }
 
     return analysis;
@@ -561,22 +723,29 @@ public class MockLoggerIntegrationTests {
       TotalErrors = errorEntries.Count,
       ErrorsByStep = errorEntries
         .Where(e => e.ScopeId.HasValue)
-        .GroupBy(e => entries.ScopeStartsOnly()
+        .GroupBy(e => entries
+          .ScopeStartsOnly()
           .WithinScope(e.ScopeId!.Value)
           .SelectMany(s => s.State.OfType<KeyValuePair<string, object>>())
-          .FirstOrDefault(kv => kv.Key == "Step").Value?.ToString() ?? "Unknown")
+          .FirstOrDefault(kv => kv.Key == "Step")
+          .Value?
+          .ToString() ?? "Unknown")
         .ToDictionary(g => g.Key, g => g.Count()),
       ExceptionTypes = [.. errorEntries
         .Select(e => e.Exception?.GetType().Name ?? "Unknown")
         .Distinct()],
       ErrorMessages = [.. errorEntries.Select(e => e.Message ?? "No message")],
-      CompletedSteps = [.. entries.LogsOnly()
+      CompletedSteps = [.. entries
+        .LogsOnly()
         .Where(e => e.Message?.Contains("completed", StringComparison.Ordinal) == true)
         .Where(e => e.ScopeId.HasValue)
-        .Select(e => entries.ScopeStartsOnly()
+        .Select(e => entries
+          .ScopeStartsOnly()
           .WithinScope(e.ScopeId!.Value)
           .SelectMany(s => s.State.OfType<KeyValuePair<string, object>>())
-          .FirstOrDefault(kv => kv.Key == "Step").Value?.ToString() ?? "Unknown")
+          .FirstOrDefault(kv => kv.Key == "Step")
+          .Value?
+          .ToString() ?? "Unknown")
         .Distinct()]
     };
   }

@@ -1,4 +1,3 @@
-// Global assembly configuration for tests
 using NSI.Testing.Loggers;
 
 namespace NSI.Testing.Tests;
@@ -31,7 +30,10 @@ internal sealed class IntegrationTestFixture: IDisposable {
   /// <summary>
   /// Releases the unmanaged resources and optionally the managed resources.
   /// </summary>
-  /// <param name="disposing">True to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
+  /// <param name="disposing">
+  /// True to release both managed and unmanaged resources;
+  /// false to release only unmanaged resources.
+  /// </param>
   private void Dispose(bool disposing) {
     if (!_Disposed) {
       if (disposing) {
@@ -40,7 +42,6 @@ internal sealed class IntegrationTestFixture: IDisposable {
       }
 
       // Dispose unmanaged resources here if any.
-
       _Disposed = true;
     }
   }

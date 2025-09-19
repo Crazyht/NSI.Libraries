@@ -27,7 +27,15 @@ public class LogEntryTests {
     var state = new object[] { "state1", "state2" };
 
     // Execute constructor
-    var entry = new LogEntry(type, scopeId, parentScopeId, level, eventId, message, exception, state);
+    var entry = new LogEntry(
+      type,
+      scopeId,
+      parentScopeId,
+      level,
+      eventId,
+      message,
+      exception,
+      state);
 
     // Verify all properties
     Assert.Equal(type, entry.Type);
@@ -52,7 +60,15 @@ public class LogEntryTests {
     };
 
     // Execute constructor
-    var entry = new LogEntry(type, scopeId, parentScopeId, null, null, null, null, state);
+    var entry = new LogEntry(
+      type,
+      scopeId,
+      parentScopeId,
+      level: null,
+      eventId: null,
+      message: null,
+      exception: null,
+      state);
 
     // Verify scope-specific properties
     Assert.Equal(EntryType.ScopeStart, entry.Type);
@@ -73,7 +89,15 @@ public class LogEntryTests {
     var state = Array.Empty<object>();
 
     // Execute constructor
-    var entry = new LogEntry(type, scopeId, null, null, null, null, null, state);
+    var entry = new LogEntry(
+      type,
+      scopeId,
+      parentScopeId: null,
+      level: null,
+      eventId: null,
+      message: null,
+      exception: null,
+      state);
 
     // Verify scope end properties
     Assert.Equal(EntryType.ScopeEnd, entry.Type);

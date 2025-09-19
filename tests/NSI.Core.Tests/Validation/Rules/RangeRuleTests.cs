@@ -94,10 +94,10 @@ public sealed class RangeRuleTests {
 
   [Fact]
   public void Constructor_WithMinGreaterThanMax_ShouldThrowArgumentException() {
-    var exception = Assert.Throws<ArgumentException>(
+    var exception = Assert.Throws<ArgumentOutOfRangeException>(
       () => new RangeRule<TestModel, int>(m => m.IntValue, 10, 5)
     );
 
-    Assert.Contains("Min value must be less than or equal to max value", exception.Message, StringComparison.Ordinal);
+    Assert.Contains("Minimum must be less than or equal to maximum.", exception.Message, StringComparison.Ordinal);
   }
 }

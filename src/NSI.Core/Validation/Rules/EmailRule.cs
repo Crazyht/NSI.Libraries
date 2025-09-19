@@ -83,7 +83,7 @@ public sealed partial class EmailRule<T>: IValidationRule<T> {
     }
 
     if (!EmailRegex().IsMatch(value)) {
-      const string sample = "user@example.com";
+      const string sample = "valid@email.com";
       yield return new ValidationError(
         "INVALID_EMAIL",
         $"{_PropertyName} must be a valid email address.",

@@ -59,4 +59,7 @@ public sealed record UserId(Guid Value): StronglyTypedId<UserId, Guid>(Value) {
   /// <summary>Creates a new random user identifier.</summary>
   /// <returns>A newly generated <see cref="UserId"/>.</returns>
   public static UserId New() => new(Guid.NewGuid());
+
+  /// <summary>Returns the canonical string form: <c>UserId-{Guid}</c>.</summary>
+  public override string ToString() => ToSerializedString(this);
 }

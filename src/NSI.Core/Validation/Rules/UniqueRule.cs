@@ -87,7 +87,10 @@ public sealed class UniqueRule<T, TValue>: IAsyncValidationRule<T> {
       return empty;
     }
 
-    cancellationToken.ThrowIfCancellationRequested();
+    // Respect cancellation using a canceled Task to surface TaskCanceledException when awaited
+    if (cancellationToken.IsCancellationRequested) {
+      await Task.FromCanceled<IEnumerable<IValidationError>>(cancellationToken);
+    }
 
     var exists = await _ExistsCheck(context.ServiceProvider, value, cancellationToken)
       .ConfigureAwait(false);
@@ -97,12 +100,13 @@ public sealed class UniqueRule<T, TValue>: IAsyncValidationRule<T> {
       return empty;
     }
 
+    // For NOT_UNIQUE, do not leak original value in ExpectedValue to avoid PII; keep it null
     var single = new IValidationError[] {
       new ValidationError(
         "NOT_UNIQUE",
         $"{_PropertyName} already exists.",
         _PropertyName,
-        value
+        null
       )
     };
     return single;

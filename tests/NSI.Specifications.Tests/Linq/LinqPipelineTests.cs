@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using NSI.Specifications.Filtering;
@@ -11,7 +8,6 @@ using NSI.Specifications.Sorting;
 using Xunit;
 
 namespace NSI.Specifications.Tests.Linq;
-
 /// <summary>
 /// Tests end-to-end chaining of specification LINQ extensions: Where → Include → OrderBy → Select.
 /// </summary>
@@ -33,10 +29,12 @@ public sealed class LinqPipelineTests {
   private sealed class LibraryContext(DbContextOptions<LibraryContext> options): DbContext(options) {
     public DbSet<Author> Authors => Set<Author>();
     public DbSet<Book> Books => Set<Book>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
       modelBuilder.Entity<Author>().HasKey(a => a.Id);
       modelBuilder.Entity<Book>().HasKey(b => b.Id);
-      modelBuilder.Entity<Author>()
+      modelBuilder
+        .Entity<Author>()
         .HasMany(a => a.Books)
         .WithOne(b => b.Author)
         .HasForeignKey(b => b.AuthorId);
@@ -47,7 +45,10 @@ public sealed class LinqPipelineTests {
   [Fact]
   public void Pipeline_IQueryable_FilterIncludeSortSelect_ProducesExpectedOrder() {
     var dbName = Guid.NewGuid().ToString("N");
-    var options = new DbContextOptionsBuilder<LibraryContext>().UseInMemoryDatabase(dbName).Options;
+    var options = new DbContextOptionsBuilder<LibraryContext>()
+      .UseInMemoryDatabase(dbName)
+      .Options;
+
     using var ctx = new LibraryContext(options);
 
     var alice = new Author { Id = 1, Name = "Alice" };
@@ -62,7 +63,13 @@ public sealed class LinqPipelineTests {
     ctx.SaveChanges();
 
     var filter = new ContainsSpecification<Author>(a => a.Name, "a", ignoreCase: true);
-    var include = new IncludeSpecification<Author>(chains: [IncludeChains.For<Author>((Expression<Func<Author, List<Book>>>)(a => a.Books))]);
+    var include = new IncludeSpecification<Author>(
+      chains: [
+        IncludeChains.For<Author>(
+          (Expression<Func<Author, List<Book>>>)(a => a.Books)
+        )
+      ]
+    );
     var sort = SortSpecification<Author>.FromSingle(a => a.Name, SortDirection.Asc);
     var project = new ProjectionSpecification<Author, string>(a => a.Name);
 
@@ -76,7 +83,7 @@ public sealed class LinqPipelineTests {
 
     Assert.Equal(ExpectedOrderedNames, names);
 
-    // Ensure Include materialized related entities
+    // Ensure Include materialized related entities.
     var authorsWithBooks = ctx.Authors.Where(filter).Include(include).ToArray();
     var aliceLoaded = authorsWithBooks.Single(a => a.Name == "Alice");
     Assert.Equal(2, aliceLoaded.Books.Count);
@@ -85,13 +92,30 @@ public sealed class LinqPipelineTests {
   [Fact]
   public void Pipeline_IEnumerable_FilterIncludeSortSelect_ProducesExpectedOrder() {
     var authors = new List<Author> {
-          new() { Id = 1, Name = "Alice", Books = [ new() { Id = 10, Title = "A1", AuthorId = 1 }, new() { Id = 11, Title = "A2", AuthorId = 1 } ] },
-          new() { Id = 2, Name = "Bob", Books = [ new() { Id = 20, Title = "B1", AuthorId = 2 } ] },
-          new() { Id = 3, Name = "Carol" }
-        };
+      new() {
+        Id = 1,
+        Name = "Alice",
+        Books = [
+          new() { Id = 10, Title = "A1", AuthorId = 1 },
+          new() { Id = 11, Title = "A2", AuthorId = 1 }
+        ]
+      },
+      new() {
+        Id = 2,
+        Name = "Bob",
+        Books = [ new() { Id = 20, Title = "B1", AuthorId = 2 } ]
+      },
+      new() { Id = 3, Name = "Carol" }
+    };
 
     var filter = new ContainsSpecification<Author>(a => a.Name, "a", ignoreCase: true);
-    var include = new IncludeSpecification<Author>(chains: [IncludeChains.For<Author>((Expression<Func<Author, List<Book>>>)(a => a.Books))]);
+    var include = new IncludeSpecification<Author>(
+      chains: [
+        IncludeChains.For<Author>(
+          (Expression<Func<Author, List<Book>>>)(a => a.Books)
+        )
+      ]
+    );
     var sort = SortSpecification<Author>.FromSingle(a => a.Name, SortDirection.Asc);
     var project = new ProjectionSpecification<Author, string>(a => a.Name);
 
@@ -106,5 +130,5 @@ public sealed class LinqPipelineTests {
     Assert.Equal(ExpectedOrderedNames, names);
   }
 
-  private static readonly string[] ExpectedOrderedNames = ["Alice", "Carol"]; // remains simple array literal
+  private static readonly string[] ExpectedOrderedNames = ["Alice", "Carol"];
 }

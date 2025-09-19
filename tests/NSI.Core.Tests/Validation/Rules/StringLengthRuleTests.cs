@@ -21,7 +21,10 @@ public sealed class StringLengthRuleTests {
   [InlineData("12345", 5, 5)]
   [InlineData("", 0, 10)]
   [InlineData("exactly10!", 10, 10)]
-  public void Validate_WithValidLength_ShouldReturnNoErrors(string value, int min, int max) {
+  public void Validate_WithValidLength_ShouldReturnNoErrors(
+    string value,
+    int min,
+    int max) {
     var rule = new StringLengthRule<TestModel>(m => m.Value, min, max);
     var model = new TestModel { Value = value };
     var context = ValidationContext.Empty();
@@ -48,7 +51,11 @@ public sealed class StringLengthRuleTests {
 
     Assert.Single(errors);
     Assert.Equal(expectedCode, errors[0].ErrorCode);
-    Assert.Contains($"at least {minLength} characters", errors[0].ErrorMessage, StringComparison.Ordinal);
+    Assert.Contains(
+      $"at least {minLength} characters",
+      errors[0].ErrorMessage,
+      StringComparison.Ordinal
+    );
     Assert.Equal("Value", errors[0].PropertyName);
     Assert.Equal(expectedLength, errors[0].ExpectedValue);
   }
@@ -70,7 +77,11 @@ public sealed class StringLengthRuleTests {
 
     Assert.Single(errors);
     Assert.Equal(expectedCode, errors[0].ErrorCode);
-    Assert.Contains($"not exceed {maxLength} characters", errors[0].ErrorMessage, StringComparison.Ordinal);
+    Assert.Contains(
+      $"not exceed {maxLength} characters",
+      errors[0].ErrorMessage,
+      StringComparison.Ordinal
+    );
     Assert.Equal("Value", errors[0].PropertyName);
     Assert.Equal(expectedLength, errors[0].ExpectedValue);
   }

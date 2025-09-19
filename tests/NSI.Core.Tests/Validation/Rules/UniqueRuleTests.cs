@@ -125,9 +125,11 @@ public sealed class UniqueRuleTests {
       () => rule.ValidateAsync(model, context, cts.Token)
     );
   }
+
   private interface IUserRepository {
     public Task<bool> EmailExistsAsync(string email, CancellationToken ct = default);
   }
+
   // Simple test double for IUserRepository
   private sealed class FakeUserRepository(bool emailExists): IUserRepository {
     private readonly bool _EmailExists = emailExists;
@@ -138,10 +140,12 @@ public sealed class UniqueRuleTests {
         value = 0;
         _CallCounts[email] = value;
       }
+
       _CallCounts[email] = value + 1;
       return Task.FromResult(_EmailExists);
     }
 
-    public int GetEmailCheckCount(string email) => _CallCounts.TryGetValue(email, out var count) ? count : 0;
+    public int GetEmailCheckCount(string email) =>
+      _CallCounts.TryGetValue(email, out var count) ? count : 0;
   }
 }

@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using NSI.Core.Common;
 
 namespace NSI.Specifications.Include;
 
@@ -30,73 +31,20 @@ namespace NSI.Specifications.Include;
 /// <para>Limitations: Relies on EF Core public API surface; breaking changes may require revision.</para>
 /// </remarks>
 internal static class IncludeExpressionHelper {
-  // Cached open generic EF Core Include / ThenInclude method definitions.
-  private static readonly MethodInfo IncludeOpenGeneric = GetIncludeOpenGeneric();
-  private static readonly MethodInfo ThenIncludeRefOpenGeneric = GetThenIncludeRefOpenGeneric();
-  private static readonly MethodInfo ThenIncludeCollOpenGeneric = GetThenIncludeCollectionOpenGeneric();
+  // Cached open generic EF Core Include / ThenInclude method definitions using MI helper.
+  private static readonly MethodInfo IncludeOpenGeneric = MI
+    .Of(() => EntityFrameworkQueryableExtensions.Include<object, object>(default!, default!))
+    .GetGenericMethodDefinition();
 
-  /// <summary>Resolves Include&lt;TEntity,TProperty&gt; open generic method definition.</summary>
-  private static MethodInfo GetIncludeOpenGeneric() {
-    static bool IsQueryableParam(MethodInfo m) {
-      var p0 = m.GetParameters()[0].ParameterType;
-      return p0.IsGenericType && p0.GetGenericTypeDefinition() == typeof(IQueryable<>);
-    }
+  private static readonly MethodInfo ThenIncludeRefOpenGeneric = MI
+    .Of(() => EntityFrameworkQueryableExtensions.ThenInclude<object, object, object>(
+      (IIncludableQueryable<object, object>)default!, default!))
+    .GetGenericMethodDefinition();
 
-    return typeof(EntityFrameworkQueryableExtensions)
-      .GetMethods(BindingFlags.Public | BindingFlags.Static)
-      .Where(m => m.Name == nameof(EntityFrameworkQueryableExtensions.Include))
-      .Where(m => m.IsGenericMethodDefinition)
-      .Where(m => m.GetGenericArguments().Length == 2)
-      .Where(m => m.GetParameters().Length == 2)
-      .First(IsQueryableParam);
-  }
-
-  /// <summary>Resolves ThenInclude for previous reference navigation open generic method.</summary>
-  private static MethodInfo GetThenIncludeRefOpenGeneric() {
-    static bool IsIncludable(MethodInfo m) {
-      var p0 = m.GetParameters()[0].ParameterType;
-      return p0.IsGenericType && p0.GetGenericTypeDefinition() == typeof(IIncludableQueryable<,>);
-    }
-
-    static bool IsReferencePrev(MethodInfo m) {
-      var prevNavType = m.GetParameters()[0].ParameterType.GetGenericArguments()[1];
-      var isEnumerable = prevNavType.IsGenericType &&
-        prevNavType.GetGenericTypeDefinition() == typeof(IEnumerable<>);
-      return !isEnumerable;
-    }
-
-    return typeof(EntityFrameworkQueryableExtensions)
-      .GetMethods(BindingFlags.Public | BindingFlags.Static)
-      .Where(m => m.Name == nameof(EntityFrameworkQueryableExtensions.ThenInclude))
-      .Where(m => m.IsGenericMethodDefinition)
-      .Where(m => m.GetGenericArguments().Length == 3)
-      .Where(m => m.GetParameters().Length == 2)
-      .Where(IsIncludable)
-      .First(IsReferencePrev);
-  }
-
-  /// <summary>Resolves ThenInclude for previous collection navigation open generic method.</summary>
-  private static MethodInfo GetThenIncludeCollectionOpenGeneric() {
-    static bool IsIncludable(MethodInfo m) {
-      var p0 = m.GetParameters()[0].ParameterType;
-      return p0.IsGenericType && p0.GetGenericTypeDefinition() == typeof(IIncludableQueryable<,>);
-    }
-
-    static bool IsCollectionPrev(MethodInfo m) {
-      var prevNavType = m.GetParameters()[0].ParameterType.GetGenericArguments()[1];
-      return prevNavType.IsGenericType &&
-        prevNavType.GetGenericTypeDefinition() == typeof(IEnumerable<>);
-    }
-
-    return typeof(EntityFrameworkQueryableExtensions)
-      .GetMethods(BindingFlags.Public | BindingFlags.Static)
-      .Where(m => m.Name == nameof(EntityFrameworkQueryableExtensions.ThenInclude))
-      .Where(m => m.IsGenericMethodDefinition)
-      .Where(m => m.GetGenericArguments().Length == 3)
-      .Where(m => m.GetParameters().Length == 2)
-      .Where(IsIncludable)
-      .First(IsCollectionPrev);
-  }
+  private static readonly MethodInfo ThenIncludeCollOpenGeneric = MI
+    .Of(() => EntityFrameworkQueryableExtensions.ThenInclude<object, object, object>(
+      (IIncludableQueryable<object, IEnumerable<object>>)default!, default!))
+    .GetGenericMethodDefinition();
 
   /// <summary>
   /// Applies all typed include chains and string include paths from the specification onto the

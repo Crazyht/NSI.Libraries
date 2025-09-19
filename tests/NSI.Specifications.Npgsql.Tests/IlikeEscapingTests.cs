@@ -1,10 +1,8 @@
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using NSI.Specifications.Filtering;
-using Xunit;
+using NSI.Specifications.Filtering.Text;
 
 namespace NSI.Specifications.Npgsql.Tests;
-
 /// <summary>
 /// Tests for escaping special characters in ILIKE pattern rewrite.
 /// </summary>
@@ -19,11 +17,19 @@ public sealed class IlikeEscapingTests(PostgresFixture fx) {
   [InlineData("back\\slash", "%back\\\\slash%")] // backslash
   [InlineData("plain", "%plain%")] // no special chars
   [InlineData("a_%b\\c%d", "%a\\_\\%b\\\\c\\%d%")] // complex mixture
-  public void Contains_EscapeCharacters_RewrittenPattern(string term, string expectedPatternFragment) {
+  public void Contains_EscapeCharacters_RewrittenPattern(
+    string term,
+    string expectedPatternFragment
+  ) {
     using var ctx = new SampleDbContext(_Fx.Options);
-    var spec = new NSI.Specifications.Filtering.Text.ContainsSpecification<SampleEntity>(x => x.Name!, term, ignoreCase: true);
+    var spec = new ContainsSpecification<SampleEntity>(
+      x => x.Name!,
+      term,
+      ignoreCase: true
+    );
     var sql = ctx.Entities.Where(spec).ToQueryString();
-    Assert.Contains("ILIKE", sql, System.StringComparison.OrdinalIgnoreCase); // rewrite happened
-    Assert.Contains(expectedPatternFragment, sql, System.StringComparison.Ordinal); // escaped pattern present
+
+    Assert.Contains("ILIKE", sql, StringComparison.OrdinalIgnoreCase); // rewrite happened
+    Assert.Contains(expectedPatternFragment, sql, StringComparison.Ordinal); // escaped present
   }
 }

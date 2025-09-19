@@ -24,7 +24,10 @@ public sealed class RangeRuleTests {
   [InlineData(10, 1, 10)]
   [InlineData(0, -10, 10)]
   [InlineData(-5, -10, -1)]
-  public void Validate_WithIntInRange_ShouldReturnNoErrors(int value, int min, int max) {
+  public void Validate_WithIntInRange_ShouldReturnNoErrors(
+    int value,
+    int min,
+    int max) {
     var rule = new RangeRule<TestModel, int>(m => m.IntValue, min, max);
     var model = new TestModel { IntValue = value };
     var context = ValidationContext.Empty();
@@ -84,7 +87,9 @@ public sealed class RangeRuleTests {
     var min = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
     var max = new DateTime(2025, 12, 31, 0, 0, 0, DateTimeKind.Utc);
     var rule = new RangeRule<TestModel, DateTime>(m => m.DateValue, min, max);
-    var model = new TestModel { DateValue = new DateTime(2023, 6, 15, 0, 0, 0, DateTimeKind.Utc) };
+    var model = new TestModel {
+      DateValue = new DateTime(2023, 6, 15, 0, 0, 0, DateTimeKind.Utc)
+    };
     var context = ValidationContext.Empty();
 
     var errors = rule.Validate(model, context);
@@ -98,6 +103,10 @@ public sealed class RangeRuleTests {
       () => new RangeRule<TestModel, int>(m => m.IntValue, 10, 5)
     );
 
-    Assert.Contains("Minimum must be less than or equal to maximum.", exception.Message, StringComparison.Ordinal);
+    Assert.Contains(
+      "Minimum must be less than or equal to maximum.",
+      exception.Message,
+      StringComparison.Ordinal
+    );
   }
 }

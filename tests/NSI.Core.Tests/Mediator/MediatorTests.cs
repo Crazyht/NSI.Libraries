@@ -35,9 +35,9 @@ public class MediatorTests {
   [Fact]
   public void Constructor_WithNullLogger_ShouldThrowArgumentNullException() {
     // Act & Assert
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddSingleton(_Logger);
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var ex = Assert.Throws<ArgumentNullException>(() => new MediatorImplementation(serviceProvider, null!));
     Assert.Equal("logger", ex.ParamName);
   }
@@ -45,9 +45,9 @@ public class MediatorTests {
   [Fact]
   public void Constructor_WithValidParameters_ShouldCreateInstance() {
     // Act
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddSingleton(_Logger);
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = new MediatorImplementation(serviceProvider, _Logger);
 
     // Assert
@@ -61,10 +61,10 @@ public class MediatorTests {
   [Fact]
   public async Task ProcessAsync_WithNullRequest_ShouldThrowArgumentNullException() {
     // Act & Assert
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
     var ex = await Assert.ThrowsAsync<ArgumentNullException>(
       () => mediator.ProcessAsync<string>(null!));
@@ -82,11 +82,11 @@ public class MediatorTests {
       .Returns(Result.Success(expectedResponse));
 
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddTransient(_ => mockHandler);
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
     // Act
@@ -105,10 +105,10 @@ public class MediatorTests {
     var query = new TestQuery("test-data");
 
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
     // Act
@@ -132,11 +132,11 @@ public class MediatorTests {
       .Returns(Result.Failure<TestResponse>(expectedError));
 
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddTransient(_ => mockHandler);
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
     // Act
@@ -160,11 +160,11 @@ public class MediatorTests {
       .ThrowsAsync(expectedException);
 
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddTransient(_ => mockHandler);
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
     // Act
@@ -189,11 +189,11 @@ public class MediatorTests {
       .Returns(Result.Success(expectedResponse));
 
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddTransient(_ => mockHandler);
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
     // Act
@@ -214,11 +214,11 @@ public class MediatorTests {
       .Throws(new OperationCanceledException());
 
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddTransient(_ => mockHandler);
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
     // Act
@@ -238,10 +238,10 @@ public class MediatorTests {
   public async Task DispatchAsync_WithNullNotification_ShouldThrowArgumentNullException() {
     // Act & Assert
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
     var ex = await Assert.ThrowsAsync<ArgumentNullException>(
       () => mediator.DispatchAsync<TestNotification>(null!));
@@ -257,11 +257,11 @@ public class MediatorTests {
     mockHandler.HandleAsync(notification, Arg.Any<CancellationToken>())
       .Returns(Result.Success(Unit.Value));
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddTransient(sp => mockHandler);
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
 
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
@@ -290,13 +290,13 @@ public class MediatorTests {
       .Returns(Result.Success(Unit.Value));
 
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddTransient(_ => mockHandler1);
     serviceCollection.AddTransient(_ => mockHandler2);
     serviceCollection.AddTransient(_ => mockHandler3);
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
     // Act
@@ -313,10 +313,10 @@ public class MediatorTests {
     // Arrange
     var notification = new TestNotification("test-event");
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
     // Act & Assert
@@ -342,13 +342,13 @@ public class MediatorTests {
       .Returns(Result.Success(Unit.Value));
 
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddTransient(_ => mockHandler1);
     serviceCollection.AddTransient(_ => mockHandler2);
     serviceCollection.AddTransient(_ => mockHandler3);
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
 
@@ -375,12 +375,12 @@ public class MediatorTests {
       .Returns(Result.Success(Unit.Value));
 
 
-    IServiceCollection serviceCollection = new ServiceCollection();
+    var serviceCollection = new ServiceCollection();
     serviceCollection.AddTransient(_ => mockHandler1);
     serviceCollection.AddTransient(_ => mockHandler2);
     serviceCollection.AddSingleton(_Logger);
     serviceCollection.AddSingleton<MediatorImplementation>();
-    IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+    var serviceProvider = serviceCollection.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<MediatorImplementation>();
 
     // Act

@@ -19,7 +19,9 @@ public class ResultExtensionsTests {
   public void Where_WithSuccessResultAndPredicateTrue_ShouldReturnSuccess() {
     var result = Result.Success(10);
 
-    var filtered = result.Where(x => x > 5, () => ResultError.BusinessRule("TOO_SMALL", "Value too small"));
+    var filtered = result.Where(
+      x => x > 5,
+      () => ResultError.BusinessRule("TOO_SMALL", "Value too small"));
 
     Assert.True(filtered.IsSuccess);
     Assert.Equal(10, filtered.Value);
@@ -30,7 +32,9 @@ public class ResultExtensionsTests {
     var result = Result.Success(3);
     var expectedError = ResultError.BusinessRule("TOO_SMALL", "Value too small");
 
-    var filtered = result.Where(x => x > 5, () => expectedError);
+    var filtered = result.Where(
+      x => x > 5,
+      () => expectedError);
 
     Assert.True(filtered.IsFailure);
     Assert.Equal(expectedError, filtered.Error);
@@ -41,7 +45,9 @@ public class ResultExtensionsTests {
     var originalError = ResultError.NotFound("ORIGINAL", "Original error");
     var result = Result.Failure<int>(originalError);
 
-    var filtered = result.Where(x => x > 5, () => ResultError.BusinessRule("NEW", "New error"));
+    var filtered = result.Where(
+      x => x > 5,
+      () => ResultError.BusinessRule("NEW", "New error"));
 
     Assert.True(filtered.IsFailure);
     Assert.Equal(originalError, filtered.Error);
@@ -51,7 +57,8 @@ public class ResultExtensionsTests {
   public void Where_WithNullPredicate_ShouldThrowArgumentNullException() {
     var result = Result.Success(10);
 
-    var ex = Assert.Throws<ArgumentNullException>(() => result.Where(null!, () => ResultError.BusinessRule("ERROR", "Error")));
+    var ex = Assert.Throws<ArgumentNullException>(() =>
+      result.Where(null!, () => ResultError.BusinessRule("ERROR", "Error")));
     Assert.Equal("predicate", ex.ParamName);
   }
 
@@ -59,7 +66,8 @@ public class ResultExtensionsTests {
   public void Where_WithNullErrorFactory_ShouldThrowArgumentNullException() {
     var result = Result.Success(10);
 
-    var ex = Assert.Throws<ArgumentNullException>(() => result.Where(x => true, null!));
+    var ex = Assert.Throws<ArgumentNullException>(() =>
+      result.Where(x => true, null!));
     Assert.Equal("errorFactory", ex.ParamName);
   }
 
@@ -104,7 +112,9 @@ public class ResultExtensionsTests {
     var result = Result.Failure<int>(error);
     var actionExecuted = false;
 
-    var tappedResult = result.TapErrorOfType(ErrorType.NotFound, err => actionExecuted = true);
+    var tappedResult = result.TapErrorOfType(
+      ErrorType.NotFound,
+      err => actionExecuted = true);
 
     Assert.True(actionExecuted);
     Assert.Equal(result, tappedResult);
@@ -116,7 +126,9 @@ public class ResultExtensionsTests {
     var result = Result.Failure<int>(error);
     var actionExecuted = false;
 
-    var tappedResult = result.TapErrorOfType(ErrorType.Validation, err => actionExecuted = true);
+    var tappedResult = result.TapErrorOfType(
+      ErrorType.Validation,
+      err => actionExecuted = true);
 
     Assert.False(actionExecuted);
     Assert.Equal(result, tappedResult);
@@ -127,7 +139,9 @@ public class ResultExtensionsTests {
     var result = Result.Success(42);
     var actionExecuted = false;
 
-    var tappedResult = result.TapErrorOfType(ErrorType.NotFound, err => actionExecuted = true);
+    var tappedResult = result.TapErrorOfType(
+      ErrorType.NotFound,
+      err => actionExecuted = true);
 
     Assert.False(actionExecuted);
     Assert.Equal(result, tappedResult);
@@ -137,7 +151,8 @@ public class ResultExtensionsTests {
   public void TapErrorOfType_WithNullAction_ShouldThrowArgumentNullException() {
     var result = Result.Failure<int>(ResultError.NotFound("TEST", "Not found"));
 
-    var exception = Assert.Throws<ArgumentNullException>(() => result.TapErrorOfType(ErrorType.NotFound, null!));
+    var exception = Assert.Throws<ArgumentNullException>(() =>
+      result.TapErrorOfType(ErrorType.NotFound, null!));
     Assert.Equal("action", exception.ParamName);
   }
 
@@ -186,7 +201,8 @@ public class ResultExtensionsTests {
   public void ToResult_WithNonNullReferenceType_ShouldReturnSuccess() {
     const string value = "test string";
 
-    var result = value.ToResult(() => ResultError.NotFound("NULL_VALUE", "Value is null"));
+    var result = value.ToResult(() =>
+      ResultError.NotFound("NULL_VALUE", "Value is null"));
 
     Assert.True(result.IsSuccess);
     Assert.Equal(value, result.Value);
@@ -207,7 +223,8 @@ public class ResultExtensionsTests {
   public void ToResult_WithNullableValueTypeHasValue_ShouldReturnSuccess() {
     int? value = 42;
 
-    var result = value.ToResult(() => ResultError.NotFound("NULL_VALUE", "Value is null"));
+    var result = value.ToResult(() =>
+      ResultError.NotFound("NULL_VALUE", "Value is null"));
 
     Assert.True(result.IsSuccess);
     Assert.Equal(42, result.Value);
@@ -228,7 +245,8 @@ public class ResultExtensionsTests {
   public void ToResult_WithNullErrorFactory_ShouldThrowArgumentNullException() {
     const string value = "test";
 
-    var exception = Assert.Throws<ArgumentNullException>(() => value.ToResult(null!));
+    var exception = Assert.Throws<ArgumentNullException>(() =>
+      value.ToResult(null!));
     Assert.Equal("errorFactory", exception.ParamName);
   }
 

@@ -1,10 +1,10 @@
 using NSI.Core.Validation;
-using NSI.Core.Validation.Abstractions;
 using NSI.Core.Validation.Rules;
 
 namespace NSI.Core.Tests.Validation.Rules;
 /// <summary>
-/// Tests for the <see cref="CustomRule{T}"/> and <see cref="AsyncCustomRule{T}"/> validation rules.
+/// Tests for the <see cref="CustomRule{T}"/> and <see cref="AsyncCustomRule{T}"/>
+/// validation rules.
 /// </summary>
 /// <remarks>
 /// <para>

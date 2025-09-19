@@ -1,93 +1,86 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using NSI.Core.Common;
 using NSI.Specifications.Core;
 
 namespace NSI.Specifications.Filtering.Text;
 
 /// <summary>
 /// Specification filtering entities whose selected string contains a configured search term with
-/// optional case-insensitive comparison (culture invariant lowering strategy for provider translation).
+/// optional case-insensitive comparison.
 /// </summary>
 /// <typeparam name="T">Entity type.</typeparam>
+/// <param name="selector">Projection selecting the string value to test from an entity.</param>
+/// <param name="term">Search term to look for within the selected string.</param>
+/// <param name="ignoreCase">When true, performs case-insensitive comparison using ToLower().</param>
 /// <remarks>
 /// <para>Semantics:
 /// <list type="bullet">
-///   <item><description>Evaluates <c>selector(entity)</c> string containment against a fixed term.</description></item>
-///   <item><description>Empty or null term yields a predicate that is always <c>false</c>.</description></item>
-///   <item><description>Optional case-insensitive mode implemented via ordinal lower‑casing on both sides.</description></item>
-///   <item><description>Null candidate strings never match (explicit null guard included).</description></item>
+///   <item><description>Evaluates selector(entity) string containment against a fixed term.</description></item>
+///   <item><description>Empty or null term yields a predicate that is always false.</description></item>
+///   <item><description>Case-insensitive mode uses ordinal ToLower() on both operands.</description></item>
+///   <item><description>Null candidate strings never match (explicit null guard).</description></item>
 /// </list>
 /// </para>
-/// <para>Guidelines:
-/// <list type="bullet">
-///   <item><description>Pre-normalize (trim / canonicalize) input term externally when appropriate.</description></item>
-///   <item><description>Prefer case-sensitive mode for performance when domain semantics allow.</description></item>
-///   <item><description>Compose with other specifications using <see cref="SpecificationExtensions"/> helpers.</description></item>
-///   <item><description>Use explicit culture-specific normalization outside the spec if required (this implementation is ordinal).</description></item>
-/// </list>
+/// <para>
+/// EF note: EF Core providers commonly translate ToLower()/Contains(string) to SQL LOWER()/LIKE.
+/// Do not use CultureInfo/StringComparison overloads here to preserve translatability.
 /// </para>
-/// <para>Performance:
-/// <list type="bullet">
-///   <item><description>Expression construction is O(1); MethodInfo lookups cached statically.</description></item>
-///   <item><description>Case-insensitive path adds two <c>ToLower()</c> calls; provider may translate to LOWER().</description></item>
-///   <item><description>Short-circuits quickly for empty search term (returns constant-false lambda).</description></item>
-/// </list>
-/// </para>
-/// <para>Thread-safety: Immutable after construction; safe for concurrent reuse.</para>
 /// </remarks>
-/// <example>
-/// <code>
-/// // Case-insensitive contains on Name property
-/// var containsUser = new ContainsSpecification&lt;User&gt;(u => u.Name, "alice");
-/// var query = users.AsQueryable().Where(containsUser.ToExpression());
-///
-/// // Case-sensitive variant
-/// var containsExact = new ContainsSpecification&lt;User&gt;(u => u.Code, "AbC", ignoreCase: false);
-/// var exactMatches = users.AsQueryable().Where(containsExact.ToExpression());
-/// </code>
-/// </example>
+/// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is null.</exception>
 public sealed class ContainsSpecification<T>(
   Expression<Func<T, string?>> selector,
   string term,
-  bool ignoreCase = true)
-  : Specification<T>, IFilterSpecification<T> {
-  private static readonly MethodInfo ToLowerMethod = typeof(string).GetMethod(nameof(string.ToLower), Type.EmptyTypes)!;
-  private static readonly MethodInfo ContainsMethod = typeof(string).GetMethod(nameof(string.Contains), [typeof(string)])!;
+  bool ignoreCase = true): Specification<T>, IFilterSpecification<T> {
 
-  private readonly Expression<Func<T, string?>> _Selector = selector ?? throw new ArgumentNullException(nameof(selector));
+  // Analyzer suppressions are scoped to the minimal region.
+  // Justification: EF Core translation does not support CultureInfo or
+  // StringComparison overloads. Using parameterless ToLower() and
+  // Contains(string) keeps queries translatable across providers.
+#pragma warning disable CA1304 // Specify CultureInfo
+#pragma warning disable CA1311 // Specify a culture or use an invariant version
+#pragma warning disable S4056  // Use overload that takes IFormatProvider
+  private static readonly MethodInfo ToLowerMethod =
+    MI.Of<string, string>(s => s.ToLower());
+#pragma warning restore S4056
+#pragma warning restore CA1311
+#pragma warning restore CA1304
+
+#pragma warning disable S4058 // Prefer overload with StringComparison - not supported by EF translation
+  private static readonly MethodInfo ContainsMethod =
+    MI.Of<string, bool>(s => s.Contains(default(string)!));
+#pragma warning restore S4058
+
+  private readonly Expression<Func<T, string?>> _Selector =
+    selector ?? throw new ArgumentNullException(nameof(selector));
   private readonly string _Term = term ?? string.Empty;
   private readonly bool _IgnoreCase = ignoreCase;
 
   /// <summary>
   /// Builds the predicate expression implementing string containment with optional case-insensitivity.
   /// </summary>
-  /// <returns>Expression yielding <see langword="true"/> when the selected string contains the configured term.</returns>
-  /// <remarks>
-  /// Shape (case-insensitive): <c>e =&gt; e.Prop != null &amp;&amp; e.Prop.ToLower().Contains(term.ToLower())</c>
-  /// Shape (case-sensitive): <c>e =&gt; e.Prop != null &amp;&amp; e.Prop.Contains(term)</c>
-  /// </remarks>
+  /// <returns>Expression yielding true when the selected string contains the configured term.</returns>
   public override Expression<Func<T, bool>> ToExpression() {
     if (string.IsNullOrEmpty(_Term)) {
-      return _ => false; // Always false – avoids provider translation overhead.
+      return _ => false;
     }
 
     var parameter = _Selector.Parameters[0];
-    var body = _Selector.Body; // e.Prop (may be nested access)
+    var body = _Selector.Body;
 
     var candidateExpr = body;
     Expression termExpr = Expression.Constant(_Term, typeof(string));
 
     if (_IgnoreCase) {
-      // Ordinal case-insensitive via Lower() on both operands (cross-provider translatable pattern).
       candidateExpr = Expression.Call(candidateExpr, ToLowerMethod);
       termExpr = Expression.Call(termExpr, ToLowerMethod);
     }
 
     var containsCall = Expression.Call(candidateExpr, ContainsMethod, termExpr);
-    var notNull = Expression.NotEqual(_Selector.Body, Expression.Constant(null, typeof(string)));
+    var notNull =
+      Expression.NotEqual(_Selector.Body, Expression.Constant(null, typeof(string)));
     Expression predicate = Expression.AndAlso(notNull, containsCall);
 
-    // Add guard chain for multi-level navigation access (null-safe path guarding).
     if (body is MemberExpression me && me.Expression is not ParameterExpression) {
       predicate = GuardBuilder.Build(_Selector.Body, predicate, parameter);
     }

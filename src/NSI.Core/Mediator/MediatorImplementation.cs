@@ -96,7 +96,7 @@ namespace NSI.Core.Mediator;
 /// <seealso cref="Result{T}"/>
 /// <seealso cref="ResultError"/>
 public class MediatorImplementation(
-  IServiceProvider serviceProvider, 
+  IServiceProvider serviceProvider,
   ILogger<MediatorImplementation> logger): IMediator {
 
   private readonly IServiceProvider _ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
@@ -140,8 +140,8 @@ public class MediatorImplementation(
   /// </para>
   /// </remarks>
   [SuppressMessage(
-    "Minor Code Smell", 
-    "S2221:\"Exception\" should not be caught", 
+    "Minor Code Smell",
+    "S2221:\"Exception\" should not be caught",
     Justification = "Mediator pattern requires catching all exceptions to convert them to Result failures. This is the boundary between exception-based and Result-based error handling.")]
   public async Task<Result<TResponse>> ProcessAsync<TResponse>(
     IRequest<TResponse> request,
@@ -186,14 +186,12 @@ public class MediatorImplementation(
         _Logger.LogMediatorProcessedRequest(requestName, result.IsSuccess);
         return result;
       }
-    }
-    catch (OperationCanceledException) {
+    } catch (OperationCanceledException) {
       _Logger.LogMediatorRequestCancelled(requestName);
       return Result.Failure<TResponse>(ResultError.ServiceUnavailable(
         "REQUEST_CANCELLED",
         "The request was cancelled"));
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
       _Logger.LogMediatorRequestProcessError(requestName, ex);
       return Result.Failure<TResponse>(ResultError.ServiceUnavailable(
         "MEDIATOR_PROCESSING_ERROR",
@@ -226,8 +224,8 @@ public class MediatorImplementation(
   /// </para>
   /// </remarks>
   [SuppressMessage(
-    "Minor Code Smell", 
-    "S2221:\"Exception\" should not be caught", 
+    "Minor Code Smell",
+    "S2221:\"Exception\" should not be caught",
     Justification = "Notification dispatching uses fire-and-forget semantics where exceptions must be caught and logged but not propagated to maintain system stability.")]
   public async Task DispatchAsync<TNotification>(TNotification notification, CancellationToken cancellationToken = default)
     where TNotification : INotification {
@@ -255,8 +253,7 @@ public class MediatorImplementation(
       } else {
         _Logger.LogMediatorNotificationNoHandler(notificationName);
       }
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
       // Log the exception but don't throw - notifications should be fire-and-forget
       _Logger.LogMediatorNotificationProcessError(notificationName, ex);
     }
@@ -284,8 +281,7 @@ public class MediatorImplementation(
       var decoratorType = GetOrCreateDecoratorType(requestType, responseType);
       var decorators = _ServiceProvider.GetServices(decoratorType);
       return decorators.Cast<object>();
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
       _Logger.LogPipelineDecoratorResolutionError(requestType.Name, ex);
       return [];
     }
@@ -358,8 +354,8 @@ public class MediatorImplementation(
   /// </para>
   /// </remarks>
   [SuppressMessage(
-    "Minor Code Smell", 
-    "S2221:\"Exception\" should not be caught", 
+    "Minor Code Smell",
+    "S2221:\"Exception\" should not be caught",
     Justification = "Notification handler isolation requires catching all exceptions to prevent one failing handler from affecting others in the parallel execution model.")]
   private async Task ExecuteNotificationHandlerAsync<TNotification>(
     IRequestHandler<TNotification, Unit> handler,
@@ -382,8 +378,7 @@ public class MediatorImplementation(
           handlerTypeName,
           notificationName);
       }
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
       // Isolate handler failures - one failing handler shouldn't affect others
       _Logger.LogMediatorNotificationHandlerError(
         handlerTypeName,

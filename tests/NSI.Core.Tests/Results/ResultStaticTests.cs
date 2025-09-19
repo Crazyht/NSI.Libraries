@@ -16,7 +16,8 @@ public class ResultStaticTests {
 
   [Fact]
   public void Try_WithSuccessfulOperation_ShouldReturnSuccess() {
-    var result = Result.Try(() => int.Parse("42", NumberStyles.Integer, CultureInfo.InvariantCulture));
+    var result = Result.Try(() =>
+      int.Parse("42", NumberStyles.Integer, CultureInfo.InvariantCulture));
 
     Assert.True(result.IsSuccess);
     Assert.Equal(42, result.Value);
@@ -24,7 +25,8 @@ public class ResultStaticTests {
 
   [Fact]
   public void Try_WithExceptionThrowingOperation_ShouldReturnFailure() {
-    var result = Result.Try(() => int.Parse("invalid", NumberStyles.Integer, CultureInfo.InvariantCulture));
+    var result = Result.Try(() =>
+      int.Parse("invalid", NumberStyles.Integer, CultureInfo.InvariantCulture));
 
     Assert.True(result.IsFailure);
     Assert.Equal(ErrorType.Generic, result.Error.Type);
@@ -35,7 +37,6 @@ public class ResultStaticTests {
 
   [Fact]
   public void Try_WithNullOperation_ShouldThrowArgumentNullException() {
-
     var exception = Assert.Throws<ArgumentNullException>(() => Result.Try<int>(null!));
     Assert.Equal("operation", exception.ParamName);
   }
@@ -54,7 +55,8 @@ public class ResultStaticTests {
 
   [Fact]
   public async Task TryAsync_WithExceptionThrowingOperation_ShouldReturnFailure() {
-    var result = await Result.TryAsync<int>(() => throw new InvalidOperationException("Test exception"));
+    var result = await Result.TryAsync<int>(() =>
+      throw new InvalidOperationException("Test exception"));
 
     Assert.True(result.IsFailure);
     Assert.Equal(ErrorType.Generic, result.Error.Type);
@@ -65,7 +67,8 @@ public class ResultStaticTests {
 
   [Fact]
   public async Task TryAsync_WithNullOperation_ShouldThrowArgumentNullException() {
-    var exception = await Assert.ThrowsAsync<ArgumentNullException>(async () => await Result.TryAsync<int>(null!));
+    var exception = await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+      await Result.TryAsync<int>(null!));
     Assert.Equal("operation", exception.ParamName);
   }
 
@@ -112,7 +115,8 @@ public class ResultStaticTests {
 
   [Fact]
   public void Combine_WithNullResults_ShouldThrowArgumentNullException() {
-    var exception = Assert.Throws<ArgumentNullException>(() => Result.Combine<int>((Result<int>[])null!));
+    var exception = Assert.Throws<ArgumentNullException>(() =>
+      Result.Combine<int>((Result<int>[])null!));
     Assert.Equal("results", exception.ParamName);
   }
 
@@ -148,7 +152,8 @@ public class ResultStaticTests {
   [Fact]
   public void Combine_WithNullEnumerable_ShouldThrowArgumentNullException() {
     IEnumerable<Result<int>>? nullResults = null;
-    var exception = Assert.Throws<ArgumentNullException>(() => Result.Combine(nullResults!));
+    var exception = Assert.Throws<ArgumentNullException>(() =>
+      Result.Combine(nullResults!));
     Assert.Equal("results", exception.ParamName);
   }
 

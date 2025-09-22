@@ -42,9 +42,8 @@ namespace NSI.Specifications.Filtering;
 /// var query = products.AsQueryable().Where(spec.ToExpression());
 /// </code>
 /// </example>
-public sealed class EqualsSpecification<T, TKey>(
-  Expression<Func<T, TKey>> selector,
-  TKey value): Specification<T>, IFilterSpecification<T> {
+public sealed class EqualsSpecification<T, TKey>(Expression<Func<T, TKey>> selector, TKey value)
+  : Specification<T>, IFilterSpecification<T> {
   private readonly Expression<Func<T, TKey>> _Selector = selector ?? throw new ArgumentNullException(nameof(selector));
   private readonly TKey _Value = value;
 

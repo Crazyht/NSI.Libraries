@@ -258,8 +258,8 @@ public abstract record StronglyTypedId<TId, TUnderlying>(TUnderlying Value): ISt
   public static string ToSerializedString(TId id) {
     ArgumentNullException.ThrowIfNull(id);
     return id.Value is IFormattable f
-      ? string.Create(CultureInfo.InvariantCulture, $"{typeof(TId).Name}-{f.ToString(null, CultureInfo.InvariantCulture)}")
-      : string.Create(CultureInfo.InvariantCulture, $"{typeof(TId).Name}-{id.Value}");
+      ? string.Create(CultureInfo.InvariantCulture, $"{Prefix}{f.ToString(null, CultureInfo.InvariantCulture)}")
+      : string.Create(CultureInfo.InvariantCulture, $"{Prefix}{id.Value}");
   }
 
   /// <summary>Returns the canonical string form of this identifier.</summary>

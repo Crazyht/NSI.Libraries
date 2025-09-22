@@ -41,22 +41,9 @@ public static partial class ModelBuilderExtension {
   /// <param name="modelBuilder">Target model builder (non-null).</param>
   /// <returns>The same <see cref="ModelBuilder"/> for fluent chaining.</returns>
   /// <exception cref="ArgumentNullException">If <paramref name="modelBuilder"/> is null.</exception>
-  /// <seealso cref="ApplySnakeCaseConvension(ModelBuilder)"/>
   public static ModelBuilder ApplySnakeCaseConvention(this ModelBuilder modelBuilder) =>
     ApplySnakeCaseInternal(modelBuilder);
 
-  /// <summary>
-  /// Legacy method (typo retained). Prefer <see cref="ApplySnakeCaseConvention(ModelBuilder)"/>.
-  /// </summary>
-  /// <param name="modelBuilder">Target model builder (non-null).</param>
-  /// <returns>The same <see cref="ModelBuilder"/> instance.</returns>
-  /// <exception cref="ArgumentNullException">If <paramref name="modelBuilder"/> is null.</exception>
-#pragma warning disable S1133 // Deprecated code removal reminder
-  [Obsolete("Use ApplySnakeCaseConvention(ModelBuilder) – will be removed in a future version.")]
-  // Justification: Backward compatibility for existing callers; tracked via issue #NNN for removal.
-  public static ModelBuilder ApplySnakeCaseConvension(this ModelBuilder modelBuilder) =>
-    ApplySnakeCaseInternal(modelBuilder);
-#pragma warning restore S1133
 
   /// <summary>
   /// Core implementation shared by public APIs.

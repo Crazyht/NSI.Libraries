@@ -30,6 +30,11 @@ namespace NSI.Core.Validation;
 /// </remarks>
 public static class ValidationResultExtensions {
   /// <summary>
+  /// Upper bound for the initial dictionary capacity used when grouping errors by property.
+  /// </summary>
+  private const int MaxInitialDictionaryCapacity = 16;
+
+  /// <summary>
   /// Returns a single string aggregating all error messages separated by <paramref name="separator"/>.
   /// </summary>
   /// <param name="result">Validation result (not null).</param>
@@ -105,7 +110,7 @@ public static class ValidationResultExtensions {
       return [];
     }
 
-    var dict = new Dictionary<string, List<IValidationError>>(capacity: Math.Min(errors.Count, 16));
+    var dict = new Dictionary<string, List<IValidationError>>(capacity: Math.Min(errors.Count, MaxInitialDictionaryCapacity));
     foreach (var err in errors) {
       var key = err.PropertyName ?? string.Empty;
       if (!dict.TryGetValue(key, out var list)) {

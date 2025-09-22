@@ -10,7 +10,7 @@ namespace NSI.Core.Results;
 /// <seealso cref="Result{T}"/>
 /// <seealso cref="ResultError"/>
 public enum ErrorType {
-  
+
   /// <summary>
   /// Generic error type for uncategorized failures or system-level errors.
   /// Maps to HTTP 500 Internal Server Error.

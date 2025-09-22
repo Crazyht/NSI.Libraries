@@ -79,7 +79,7 @@ namespace NSI.Core.MultiTenants;
 /// <seealso cref="TenantId"/>
 /// <seealso cref="TenantId.FakeTenantId"/>
 public sealed class FakeTenantService: ITenantService {
-  
+
   /// <summary>
   /// Gets a predefined fake tenant identifier for testing and development scenarios.
   /// </summary>

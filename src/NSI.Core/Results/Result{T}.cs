@@ -121,7 +121,7 @@ namespace NSI.Core.Results;
 /// <seealso cref="ResultError"/>
 /// <seealso cref="ErrorType"/>
 public readonly struct Result<T>: IEquatable<Result<T>> {
-  
+
   private readonly T _Value;
   private readonly ResultError _Error;
 

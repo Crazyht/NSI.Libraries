@@ -114,7 +114,7 @@ namespace NSI.Core.MultiTenants;
 /// <seealso cref="IHaveNullableTenantId"/>
 /// <seealso cref="IHaveInheritedTenantId"/>
 public interface ITenantService {
-  
+
   /// <summary>
   /// Gets the identifier of the current tenant from the active execution context.
   /// </summary>

@@ -176,10 +176,10 @@ public static class ExceptionFormatter {
   /// </example>
   public static string FormatForHttp(this Exception ex) {
     ArgumentNullException.ThrowIfNull(ex);
-    
+
     var sb = new StringBuilder();
     var currentException = ex;
-    
+
     for (var depth = 0; currentException != null && depth < MaxExceptionNestingLevel; depth++) {
       var indent = new string(' ', depth * 2);
 
@@ -197,7 +197,7 @@ public static class ExceptionFormatter {
             .AppendLine(relevantStack);
         }
       }
-      
+
       currentException = currentException.InnerException;
     }
 

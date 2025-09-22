@@ -78,7 +78,7 @@ namespace NSI.Core.Mediator;
 /// <seealso cref="IRequestHandler{TRequest, TResponse}"/>
 /// <seealso cref="IRequestDecorator{TRequest, TResponse}"/>
 public static class ServiceCollectionExtensions {
-  
+
   /// <summary>
   /// Adds the mediator and automatically registers all handlers and decorators from the specified assemblies.
   /// </summary>
@@ -418,7 +418,7 @@ public static class ServiceCollectionExtensions {
     ArgumentNullException.ThrowIfNull(assemblies);
 
     var (errors, count) = ValidateHandlersInAssemblies(serviceProvider, assemblies);
-    
+
     return CreateValidationResult(errors, count);
   }
 
@@ -429,16 +429,16 @@ public static class ServiceCollectionExtensions {
   /// <param name="assemblies">Assemblies to validate.</param>
   /// <returns>Tuple containing errors list and total count.</returns>
   private static (List<string> errors, int count) ValidateHandlersInAssemblies(
-    IServiceProvider serviceProvider, 
+    IServiceProvider serviceProvider,
     Assembly[] assemblies) {
-    
+
     var errors = new List<string>();
     var count = 0;
 
     foreach (var assembly in assemblies) {
       var requestTypes = GetRequestTypesFromAssembly(assembly);
       var (assemblyErrors, assemblyCount) = ValidateRequestTypes(serviceProvider, requestTypes);
-      
+
       errors.AddRange(assemblyErrors);
       count += assemblyCount;
     }
@@ -455,7 +455,7 @@ public static class ServiceCollectionExtensions {
   private static (List<string> errors, int count) ValidateRequestTypes(
     IServiceProvider serviceProvider,
     IEnumerable<Type> requestTypes) {
-    
+
     var errors = new List<string>();
     var count = 0;
 
@@ -534,7 +534,7 @@ public static class ServiceCollectionExtensions {
   private static void RegisterHandlersFromAssembly(IServiceCollection services, Assembly assembly) {
     const int estimatedHandlerCount = 50; // Pre-size collections for better performance
     var handlerTypes = new List<Type>(estimatedHandlerCount);
-    
+
     foreach (var type in assembly.GetTypes()) {
       if (type.IsClass && !type.IsAbstract && !type.IsGenericTypeDefinition &&
           type.GetInterfaces().Any(IsHandlerInterface)) {
@@ -572,7 +572,7 @@ public static class ServiceCollectionExtensions {
   private static void RegisterDecoratorsFromAssembly(IServiceCollection services, Assembly assembly) {
     const int estimatedDecoratorCount = 20; // Pre-size collections for better performance
     var decoratorTypes = new List<Type>(estimatedDecoratorCount);
-    
+
     foreach (var type in assembly.GetTypes()) {
       if (type.IsClass && !type.IsAbstract && !type.IsGenericTypeDefinition &&
           type.GetInterfaces().Any(IsDecoratorInterface)) {
@@ -661,7 +661,7 @@ public static class ServiceCollectionExtensions {
   /// </para>
   /// </remarks>
   private static Type? GetResponseTypeFromRequest(Type requestType) {
-    var requestInterface = Array.Find(requestType.GetInterfaces(), i => 
+    var requestInterface = Array.Find(requestType.GetInterfaces(), i =>
       i.IsGenericType && typeof(IRequest<>).IsAssignableFrom(i.GetGenericTypeDefinition()));
 
     return requestInterface?.GetGenericArguments().FirstOrDefault();

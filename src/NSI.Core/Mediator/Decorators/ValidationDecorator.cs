@@ -103,7 +103,7 @@ namespace NSI.Core.Mediator.Decorators;
 public class ValidationDecorator<TRequest, TResponse>(
   IServiceProvider serviceProvider,
   ILogger<ValidationDecorator<TRequest, TResponse>> logger): IRequestDecorator<TRequest, TResponse>
-  where TRequest: IRequest<TResponse> {
+  where TRequest : IRequest<TResponse> {
 
   private readonly IServiceProvider _ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
   private readonly ILogger<ValidationDecorator<TRequest, TResponse>> _Logger = logger ?? throw new ArgumentNullException(nameof(logger));

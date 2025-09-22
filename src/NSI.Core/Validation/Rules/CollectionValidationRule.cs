@@ -53,7 +53,7 @@ namespace NSI.Core.Validation.Rules;
 /// </code>
 /// </example>
 public sealed class CollectionValidationRule<T, TItem>: IValidationRule<T>
-  where TItem: class {
+  where TItem : class {
   private readonly Func<T, IEnumerable<TItem>?> _PropertyAccessor;
   private readonly string _PropertyName;
 

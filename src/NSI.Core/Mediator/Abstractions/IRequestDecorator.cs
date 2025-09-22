@@ -112,7 +112,7 @@ namespace NSI.Core.Mediator.Abstractions;
 /// <seealso cref="IRequest{TResponse}"/>
 /// <seealso cref="Result{T}"/>
 public interface IRequestDecorator<TRequest, TResponse>
-  where TRequest: IRequest<TResponse> {
+  where TRequest : IRequest<TResponse> {
 
   /// <summary>
   /// Handles the request with the ability to execute logic before and after the next handler.

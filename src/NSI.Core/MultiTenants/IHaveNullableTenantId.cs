@@ -68,7 +68,7 @@ namespace NSI.Core.MultiTenants;
 /// <seealso cref="TenantId"/>
 /// <seealso cref="ITenantService"/>
 public interface IHaveNullableTenantId {
-  
+
   /// <summary>
   /// Gets the tenant identifier this entity belongs to, or null if the entity is globally accessible.
   /// </summary>

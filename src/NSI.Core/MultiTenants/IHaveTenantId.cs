@@ -59,7 +59,7 @@ namespace NSI.Core.MultiTenants;
 /// <seealso cref="TenantId"/>
 /// <seealso cref="ITenantService"/>
 public interface IHaveTenantId {
-  
+
   /// <summary>
   /// Gets the tenant identifier this entity belongs to.
   /// </summary>

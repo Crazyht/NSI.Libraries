@@ -133,7 +133,7 @@ namespace NSI.Core.Mediator.Abstractions;
 /// <seealso cref="Result{T}"/>
 /// <seealso cref="ResultError"/>
 public interface IRequestHandler<in TRequest, TResponse>
-  where TRequest: IRequest<TResponse> {
+  where TRequest : IRequest<TResponse> {
 
   /// <summary>
   /// Handles a request asynchronously.

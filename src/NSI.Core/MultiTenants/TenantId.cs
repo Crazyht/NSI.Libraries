@@ -60,7 +60,7 @@ namespace NSI.Core.MultiTenants;
 /// <seealso cref="IHaveTenantId"/>
 /// <seealso cref="IHaveNullableTenantId"/>
 public sealed record TenantId(Guid Value): StronglyTypedId<TenantId, Guid>(Value) {
-  
+
   /// <summary>
   /// Returns a string representation of this tenant ID using the standardized strongly-typed ID format.
   /// </summary>

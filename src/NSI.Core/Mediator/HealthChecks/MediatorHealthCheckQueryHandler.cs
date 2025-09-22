@@ -78,7 +78,7 @@ namespace NSI.Core.Mediator.HealthChecks;
 /// <seealso cref="HealthCheckExtensions"/>
 /// <seealso cref="Result{T}"/>
 public class MediatorHealthCheckQueryHandler: IRequestHandler<MediatorHealthCheckQuery, string> {
-  
+
   /// <summary>
   /// Handles the health check query by returning a success status indicating mediator infrastructure is operational.
   /// </summary>
@@ -134,6 +134,6 @@ public class MediatorHealthCheckQueryHandler: IRequestHandler<MediatorHealthChec
   /// }
   /// </code>
   /// </example>
-  public Task<Result<string>> HandleAsync(MediatorHealthCheckQuery request, CancellationToken cancellationToken = default) 
+  public Task<Result<string>> HandleAsync(MediatorHealthCheckQuery request, CancellationToken cancellationToken = default)
     => Task.FromResult(Result.Success("Mediator is healthy"));
 }

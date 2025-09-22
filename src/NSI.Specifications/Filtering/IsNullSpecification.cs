@@ -8,7 +8,7 @@ namespace NSI.Specifications.Filtering;
 /// <see langword="null"/>. Any intermediate null along the navigation path yields a match.
 /// </summary>
 /// <typeparam name="T">Entity type.</typeparam>
-/// <typeparam name="TKey">Reference member type (must be a class type).</typeparam>
+/// <typeparam name="TKey">Reference member type.</typeparam>
 /// <remarks>
 /// <para>Semantics:
 /// <list type="bullet">

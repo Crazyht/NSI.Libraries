@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using NSI.Core.Validation;
 using NSI.Core.Validation.Abstractions;
 
@@ -18,7 +19,9 @@ public sealed class ValidatorTests {
   }
 
   private sealed class AlwaysFailRule: IValidationRule<TestModel> {
-    public IEnumerable<IValidationError> Validate(TestModel instance, IValidationContext context) {
+    public IEnumerable<IValidationError> Validate(
+      TestModel instance,
+      IValidationContext context) {
       yield return new ValidationError("ALWAYS_FAIL", "This rule always fails");
     }
   }
@@ -115,7 +118,8 @@ public sealed class ValidatorTests {
   [InlineData(1)]
   [InlineData(5)]
   [InlineData(10)]
-  public async Task ValidateAsync_WithMultipleAsyncRules_ShouldExecuteConcurrently(int ruleCount) {
+  public async Task ValidateAsync_WithMultipleAsyncRules_ShouldExecuteConcurrently(
+    int ruleCount) {
     var validator = new Validator<TestModel>();
 
     for (var i = 0; i < ruleCount; i++) {
@@ -123,7 +127,7 @@ public sealed class ValidatorTests {
     }
 
     var model = new TestModel();
-    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+    var stopwatch = Stopwatch.StartNew();
 
     var result = await validator.ValidateAsync(model);
 

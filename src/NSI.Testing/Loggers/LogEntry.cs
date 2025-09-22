@@ -5,138 +5,111 @@ using Microsoft.Extensions.Logging;
 namespace NSI.Testing.Loggers;
 
 /// <summary>
-/// Represents a single logging entry or scope operation.
+/// Immutable captured logging record (message or scope lifecycle marker) used in tests.
 /// </summary>
 /// <remarks>
-/// <para>
-/// This class encapsulates all information about a logging operation,
-/// including standard log messages and scope management operations.
-/// It serves as the fundamental data structure for capturing and
-/// analyzing logging behavior in tests.
+/// <para>Responsibilities:
+/// <list type="bullet">
+///   <item><description>Represent either a structured log message or a scope start/end boundary.</description></item>
+///   <item><description>Preserve correlation data (scope hierarchy via <see cref="ScopeId"/> /
+///     <see cref="ParentScopeId"/>).</description></item>
+///   <item><description>Retain structured state (<see cref="State"/>), exceptions and event metadata
+///     for deterministic assertions.</description></item>
+/// </list>
 /// </para>
-/// <para>
-/// For scope entries, the <see cref="Level"/> and <see cref="EventId"/> 
-/// properties will be null, while scope-specific information is stored 
-/// in the <see cref="State"/> property.
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description><see cref="Type"/> determines semantic interpretation of other nullable
+///     members (e.g. <see cref="Level"/>, <see cref="EventId"/>, <see cref="Message"/> are null for
+///     scope boundaries).</description></item>
+///   <item><description>Do not mutate the array returned by <see cref="State"/>; treat as immutable
+///     snapshot (logger infrastructure owns creation).</description></item>
+///   <item><description>Prefer helper filters (e.g. extension methods) instead of manual predicates
+///     in test code for readability.</description></item>
+/// </list>
 /// </para>
-/// <para>
-/// The class maintains immutability after construction to ensure
-/// thread-safe access and prevent accidental modifications during
-/// test execution.
+/// <para>Performance:
+/// <list type="bullet">
+///   <item><description>Allocation cost is small and proportional to structured state size.</description></item>
+///   <item><description>No further allocations after construction (pure data carrier).</description></item>
+///   <item><description>Debugger display optimized for quick triage.</description></item>
+/// </list>
 /// </para>
+/// <para>Thread-safety: Fully immutable; safe for concurrent reads across parallel test runs.</para>
+/// <para>Scope Semantics: A logical scope lifecycle is represented by a pair of entries with
+/// <see cref="EntryType.ScopeStart"/> and <see cref="EntryType.ScopeEnd"/> sharing the same
+/// <see cref="ScopeId"/>. Hierarchy is derived from <see cref="ParentScopeId"/>.</para>
 /// </remarks>
+/// <example>
+/// <code>
+/// // Assert a single error log with specific event id
+/// var error = store.GetAll()
+///   .Where(e => e.Type == EntryType.Log &amp;&amp; e.Level == LogLevel.Error)
+///   .Single();
+/// Assert.Equal(42, error.EventId?.Id);
+/// Assert.Contains("FAILED", error.Message, StringComparison.Ordinal);
+///
+/// // Validate scope pairing
+/// var starts = store.GetAll().Count(e => e.Type == EntryType.ScopeStart);
+/// var ends = store.GetAll().Count(e => e.Type == EntryType.ScopeEnd);
+/// Assert.Equal(starts, ends);
+/// </code>
+/// </example>
+/// <seealso cref="EntryType"/>
+/// <seealso cref="ILogEntryStore"/>
 [DebuggerDisplay("{GetDebuggerDisplay(),nq}")]
 public sealed class LogEntry {
-  /// <summary>
-  /// Gets the type of this log entry.
-  /// </summary>
-  /// <value>
-  /// An <see cref="EntryType"/> value indicating whether this is a log message,
-  /// scope start, or scope end entry.
-  /// </value>
+  /// <summary>Entry classification (log message, scope start, scope end).</summary>
   public EntryType Type { get; }
 
-  /// <summary>
-  /// Gets the unique identifier of the scope this entry belongs to, 
-  /// or <see langword="null"/> if outside any scope.
-  /// </summary>
-  /// <value>
-  /// A <see cref="Guid"/> representing the scope identifier, or 
-  /// <see langword="null"/> if this entry is not associated with any scope.
-  /// </value>
+  /// <summary>Current scope identifier or null when outside any scope.</summary>
   public Guid? ScopeId { get; }
 
-  /// <summary>
-  /// Gets the unique identifier of the parent scope, 
-  /// or <see langword="null"/> if this is a root scope or log entry.
-  /// </summary>
-  /// <value>
-  /// A <see cref="Guid"/> representing the parent scope identifier, or 
-  /// <see langword="null"/> if this is a root-level entry.
-  /// </value>
+  /// <summary>Parent scope identifier or null when root-level or a loose log.</summary>
   public Guid? ParentScopeId { get; }
 
-  /// <summary>
-  /// Gets the log level for log entries, 
-  /// or <see langword="null"/> for scope entries.
-  /// </summary>
-  /// <value>
-  /// A <see cref="LogLevel"/> value for log entries, or 
-  /// <see langword="null"/> for scope start and end entries.
-  /// </value>
+  /// <summary>Log level for message entries; null for scope boundaries.</summary>
   public LogLevel? Level { get; }
 
-  /// <summary>
-  /// Gets the event identifier for log entries, 
-  /// or <see langword="null"/> for scope entries.
-  /// </summary>
-  /// <value>
-  /// An <see cref="EventId"/> value for log entries, or 
-  /// <see langword="null"/> for scope start and end entries.
-  /// </value>
+  /// <summary>Event identifier for message entries; null for scope boundaries.</summary>
   public EventId? EventId { get; }
 
-  /// <summary>
-  /// Gets the formatted log message for log entries, 
-  /// or <see langword="null"/> for scope entries.
-  /// </summary>
-  /// <value>
-  /// A string containing the formatted log message for log entries, or 
-  /// <see langword="null"/> for scope start and end entries.
-  /// </value>
+  /// <summary>Formatted message for log entries; null for scope boundaries.</summary>
   public string? Message { get; }
 
-  /// <summary>
-  /// Gets the exception associated with this log entry, 
-  /// or <see langword="null"/> if no exception was logged.
-  /// </summary>
-  /// <value>
-  /// The <see cref="Exception"/> instance associated with this log entry, or 
-  /// <see langword="null"/> if no exception information is available.
-  /// </value>
+  /// <summary>Associated exception instance if present; otherwise null.</summary>
   public Exception? Exception { get; }
 
-  /// <summary>
-  /// Gets the state object array containing either the TState 
-  /// for log entries or scope variables for scope entries.
-  /// </summary>
-  /// <value>
-  /// An array of objects representing the structured logging state for log entries
-  /// or the scope variables for scope entries. This array is never null.
-  /// </value>
-  [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "By design with Logging.")]
+  /// <summary>Structured state (logging values or scope variables) – never null.</summary>
+  [SuppressMessage(
+    "Performance",
+    "CA1819:Properties should not return arrays",
+    Justification = "Array chosen to mirror ILogger pipeline shape & avoid per-access copying.")]
   public object[] State { get; }
 
   /// <summary>
-  /// Initializes a new instance of the <see cref="LogEntry"/> class.
+  /// Creates a new immutable log entry (message or scope record).
   /// </summary>
-  /// <param name="type">The type of log entry.</param>
-  /// <param name="scopeId">The scope identifier, or <see langword="null"/> if outside any scope.</param>
-  /// <param name="parentScopeId">The parent scope identifier, or <see langword="null"/> if root level.</param>
-  /// <param name="level">The log level for log entries, or <see langword="null"/> for scope entries.</param>
-  /// <param name="eventId">The event identifier for log entries, or <see langword="null"/> for scope entries.</param>
-  /// <param name="message">The formatted message for log entries, or <see langword="null"/> for scope entries.</param>
-  /// <param name="exception">The associated exception, or <see langword="null"/> if none.</param>
-  /// <param name="state">The state object array containing log or scope data.</param>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="state"/> is <see langword="null"/>.
-  /// </exception>
+  /// <param name="type">Classification of entry.</param>
+  /// <param name="scopeId">Scope identifier (or null for non-scoped log).</param>
+  /// <param name="parentScopeId">Parent scope identifier for nested scopes.</param>
+  /// <param name="level">Log level (null for scope entries).</param>
+  /// <param name="eventId">Event identifier (null for scope entries).</param>
+  /// <param name="message">Formatted message (null for scope entries).</param>
+  /// <param name="exception">Captured exception if any.</param>
+  /// <param name="state">Structured state array (non-null).</param>
+  /// <exception cref="ArgumentNullException">When <paramref name="state"/> is null.</exception>
   /// <remarks>
-  /// <para>
-  /// The constructor validates that the state parameter is not null, as it is
-  /// essential for both log entries (containing structured logging data) and
-  /// scope entries (containing scope variables).
-  /// </para>
-  /// <para>
-  /// All other parameters are optional and their values depend on the entry type.
-  /// For log entries, level and eventId should typically be provided, while for
-  /// scope entries, these values should be null.
-  /// </para>
+  /// <para>No normalization is performed; caller supplies data exactly as captured from the logger
+  /// pipeline.</para>
+  /// <para>For scope entries (<see cref="EntryType.ScopeStart"/> / <see cref="EntryType.ScopeEnd"/>)
+  /// only <see cref="Type"/>, <see cref="ScopeId"/>, <see cref="ParentScopeId"/> and
+  /// <see cref="State"/> should typically have values.</para>
   /// </remarks>
   [SuppressMessage(
     "Major Code Smell",
     "S107:Methods should not have too many parameters",
-    Justification = "All properties are readonly, so we need to pass everything in constructor.")]
+    Justification = "Comprehensive immutable value object initialization – all data required.")]
   public LogEntry(
     EntryType type,
     Guid? scopeId,
@@ -158,19 +131,11 @@ public sealed class LogEntry {
     State = state;
   }
 
-  private string GetDebuggerDisplay() {
-    if (Type == EntryType.Log) {
-      var level = Level?.ToString() ?? "None";
-      var msg = Message ?? "<no message>";
-      var ex = Exception != null ? $" | Ex: {Exception.GetType().Name}" : "";
-      return $"Log [{level}] {msg}{ex}";
-    }
-    if (Type == EntryType.ScopeStart) {
-      return $"ScopeStart [Id={ScopeId}]";
-    }
-    if (Type == EntryType.ScopeEnd) {
-      return $"ScopeEnd [Id={ScopeId}]";
-    }
-    return $"EntryType={Type}";
-  }
+  private string GetDebuggerDisplay() => Type switch {
+    EntryType.Log => $"Log [{Level?.ToString() ?? "None"}] {Message ?? "<no message>"}" +
+                     (Exception != null ? $" | Ex: {Exception.GetType().Name}" : string.Empty),
+    EntryType.ScopeStart => $"ScopeStart [Id={ScopeId}]",
+    EntryType.ScopeEnd => $"ScopeEnd [Id={ScopeId}]",
+    _ => $"EntryType={Type}"
+  };
 }

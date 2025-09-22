@@ -9,19 +9,45 @@ using NSI.EntityFramework.Converters;
 namespace NSI.EntityFramework;
 
 /// <summary>
-/// Generic application <see cref="DbContext"/> implementing multi-tenancy (tenant filters &amp; enforcement)
-/// and audit population for creation/modification fields using strongly typed identifiers.
+/// Generic application <see cref="DbContext"/> adding multi-tenant query isolation and audit field
+/// population for entities implementing <see cref="IHaveTenantId"/>, <see cref="IHaveNullableTenantId"/>
+/// and <see cref="IAuditableEntity"/> using strongly‑typed identifiers.
 /// </summary>
-/// <typeparam name="TUser">User entity type used for foreign key relationships in audit fields.</typeparam>
+/// <typeparam name="TUser">User entity type referenced by audit foreign keys.</typeparam>
+/// <remarks>
+/// <para>Semantics:
+/// <list type="bullet">
+///   <item><description>Automatic strongly‑typed id converters (<see cref="StronglyTypedIdEfCoreExtensions"/>).</description></item>
+///   <item><description>Global query filters for tenant-scoped entities based on resolved <see cref="TenantId"/>.</description></item>
+///   <item><description>Audit creation / modification timestamps &amp; user attribution on SaveChanges.</description></item>
+///   <item><description>Over‑tenant (platform) accounts signaled by null tenant id (no query filter applied).</description></item>
+/// </list>
+/// </para>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Derive concrete application contexts from this generic base.</description></item>
+///   <item><description>Register one scoped instance per unit-of-work / request.</description></item>
+///   <item><description>Avoid placing domain logic inside the context; keep orchestration only.</description></item>
+///   <item><description>Override <see cref="OnModelCreating(ModelBuilder)"/> AFTER calling base to extend mappings.</description></item>
+/// </list>
+/// </para>
+/// <para>Performance:
+/// <list type="bullet">
+///   <item><description>Tenant filters compiled once per model cache; per-query reuse by EF.</description></item>
+///   <item><description>Audit writes use current UTC timestamp from injected <see cref="TimeProvider"/>.</description></item>
+///   <item><description>SaveChanges sync path bridges to async once (accepted pattern per repository rules).</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: DbContext instances are not thread-safe. Scope per request or operation.</para>
+/// <para>Exceptions: Tenant enforcement raises <see cref="UnauthorizedAccessException"/> for cross-tenant
+/// access or missing tenant context where required.</para>
+/// </remarks>
 public class NsiDbContext<TUser>: DbContext {
-
-  /// <summary>
-  /// Initializes a new instance of the <see cref="NsiDbContext{TUser}"/> class.
-  /// </summary>
-  /// <param name="options">EF Core options.</param>
-  /// <param name="userAccessor">Current user accessor.</param>
-  /// <param name="timeProvider">Time provider abstraction.</param>
-  /// <param name="tenantService">Tenant resolution service.</param>
+  /// <summary>Initializes a new context instance.</summary>
+  /// <param name="options">EF Core options (non-null).</param>
+  /// <param name="userAccessor">Accessor for current user (non-null).</param>
+  /// <param name="timeProvider">Time source abstraction (non-null).</param>
+  /// <param name="tenantService">Tenant resolution service (non-null).</param>
   public NsiDbContext(
     DbContextOptions options,
     IUserAccessor userAccessor,
@@ -39,75 +65,58 @@ public class NsiDbContext<TUser>: DbContext {
   private readonly IUserAccessor _UserAccessor;
   private readonly TimeProvider _TimeProvider;
   private readonly TenantId? _TenantId;
-  /// <summary>
-  /// Gets the tenant identifier associated with this context instance (null for over-tenant scope).
-  /// </summary>
+
+  /// <summary>Gets the tenant identifier for this context instance (null = over‑tenant scope).</summary>
   public TenantId? GetCurrentTenantId() => _TenantId;
 
-  /// <summary>
-  /// Configures the model that was discovered by convention from the entity types
-  /// exposed in <see cref="DbSet{TEntity}"/> properties on this context.
-  /// </summary>
-  /// <param name="modelBuilder">The builder being used to construct the model.</param>
+  /// <inheritdoc />
   protected override void OnModelCreating(ModelBuilder modelBuilder) {
     ArgumentNullException.ThrowIfNull(modelBuilder);
     base.OnModelCreating(modelBuilder);
-    // Apply converters for strongly-typed IDs
+
+    // Strongly‑typed id conversions
     modelBuilder.ApplyStronglyTypedIdConversions();
 
+    // Naming conventions may be applied via extension prior to configuration
     ConfigureAuditableEntities(modelBuilder);
     ConfigureEntitiesWithTenantId(modelBuilder, _TenantId);
   }
 
   /// <summary>
-  /// Configures multi-tenancy query filters and required properties for entities 
-  /// that implement <see cref="IHaveTenantId"/>.
+  /// Adds required property constraints and query filters for tenant-scoped entities.
   /// </summary>
-  /// <param name="modelBuilder">The builder being used to construct the model.</param>
-  /// <param name="tenantId">The current tenant ID to use in query filters.</param>
-  /// <remarks>
-  /// This method sets up automatic query filtering based on tenant ID, ensuring data isolation
-  /// between tenants in a multi-tenant environment.
-  /// </remarks>
   private static void ConfigureEntitiesWithTenantId(ModelBuilder modelBuilder, TenantId? tenantId) {
-    foreach (var clrType in modelBuilder.Model.GetEntityTypes().Select(entityType => entityType.ClrType).Where(EntityHaveTenant)) {
+    foreach (var clrType in modelBuilder.Model.GetEntityTypes().Select(t => t.ClrType).Where(EntityHaveTenant)) {
       modelBuilder.Entity(clrType).Property(nameof(IHaveTenantId.TenantId)).IsRequired();
     }
+
+    // Over‑tenant (platform) context: no global filters applied.
     if (tenantId == null) {
-      // If tenantId is null, it indicates that the connected user is an overtenant account and therefore does not require a query filter.
       return;
     }
-    foreach (var clrType in modelBuilder.Model.GetEntityTypes().Select(entityType => entityType.ClrType).Where(EntityHaveTenant)) {
-      var parameter = Expression.Parameter(clrType, "e");
-      var property = Expression.Property(parameter, nameof(IHaveTenantId.TenantId));
-      var tenantIdConstant = Expression.Constant(tenantId);
-      var comparaison = Expression.Equal(property, tenantIdConstant);
-      var lambda = Expression.Lambda(comparaison, parameter);
-      modelBuilder.Entity(clrType).HasQueryFilter(lambda);
+
+    foreach (var clrType in modelBuilder.Model.GetEntityTypes().Select(t => t.ClrType).Where(EntityHaveTenant)) {
+      var p = Expression.Parameter(clrType, "e");
+      var body = Expression.Equal(
+        Expression.Property(p, nameof(IHaveTenantId.TenantId)),
+        Expression.Constant(tenantId));
+      modelBuilder.Entity(clrType).HasQueryFilter(Expression.Lambda(body, p));
     }
-    foreach (var clrType in modelBuilder.Model.GetEntityTypes().Select(entityType => entityType.ClrType).Where(EntityHaveNullableTenant)) {
-      var parameter = Expression.Parameter(clrType, "e");
-      var property = Expression.Property(parameter, nameof(IHaveNullableTenantId.TenantId));
-      var tenantIdConstant = Expression.Constant(tenantId, property.Type);
-      var equalExpr = Expression.Equal(property, tenantIdConstant);// e.TenantId == tenantId
-      var nullExpr = Expression.Equal(property, Expression.Constant(null, property.Type));// e.TenantId == null
-      var orExpr = Expression.OrElse(nullExpr, equalExpr);// e.TenantId == null || e.TenantId == tenantId
-      var lambda = Expression.Lambda(orExpr, parameter);
-      modelBuilder.Entity(clrType).HasQueryFilter(lambda);
+
+    foreach (var clrType in modelBuilder.Model.GetEntityTypes().Select(t => t.ClrType).Where(EntityHaveNullableTenant)) {
+      var p = Expression.Parameter(clrType, "e");
+      var property = Expression.Property(p, nameof(IHaveNullableTenantId.TenantId));
+      var tenantConst = Expression.Constant(tenantId, property.Type);
+      var equalExpr = Expression.Equal(property, tenantConst);
+      var nullExpr = Expression.Equal(property, Expression.Constant(null, property.Type));
+      var orExpr = Expression.OrElse(nullExpr, equalExpr);
+      modelBuilder.Entity(clrType).HasQueryFilter(Expression.Lambda(orExpr, p));
     }
   }
 
-  /// <summary>
-  /// Configures auditing properties for entities that implement <see cref="IAuditableEntity"/>.
-  /// </summary>
-  /// <param name="modelBuilder">The builder being used to construct the model.</param>
-  /// <remarks>
-  /// This method configures required and optional properties related to entity
-  /// auditing, such as creation and modification timestamps and user IDs.
-  /// </remarks>
+  /// <summary>Configures auditing properties for entities implementing <see cref="IAuditableEntity"/>.</summary>
   private static void ConfigureAuditableEntities(ModelBuilder modelBuilder) {
-    // Configure Auditable Entities
-    foreach (var clrType in modelBuilder.Model.GetEntityTypes().Select(entityType => entityType.ClrType).Where(EntityHaveAudit)) {
+    foreach (var clrType in modelBuilder.Model.GetEntityTypes().Select(t => t.ClrType).Where(EntityHaveAudit)) {
       modelBuilder.Entity(clrType).Property(nameof(IAuditableEntity.CreatedOn)).IsRequired();
       modelBuilder.Entity(clrType).Property(nameof(IAuditableEntity.CreatedBy)).IsRequired();
       modelBuilder.Entity(clrType).Property(nameof(IAuditableEntity.ModifiedOn));
@@ -123,103 +132,38 @@ public class NsiDbContext<TUser>: DbContext {
     }
   }
 
-  /// <summary>
-  /// Determines if the specified CLR type implements the <see cref="IHaveTenantId"/> interface.
-  /// </summary>
-  /// <param name="clrType">The CLR type to check.</param>
-  /// <returns>True if the type implements <see cref="IHaveTenantId"/>; otherwise, false.</returns>
-  private static bool EntityHaveTenant(Type clrType) {
-    if (clrType == null) {
-      return false;
-    }
+  private static bool EntityHaveTenant(Type clrType) =>
+    clrType != null && clrType.IsAssignableTo(typeof(IHaveTenantId)) &&
+    !clrType.IsAssignableTo(typeof(IHaveInheritedTenantId));
 
-    // Must implement IHaveTenantId (directly or via inheritance)
-    var hasTenantId = clrType.IsAssignableTo(typeof(IHaveTenantId));
+  private static bool EntityHaveNullableTenant(Type clrType) =>
+    clrType?.IsAssignableTo(typeof(IHaveNullableTenantId)) ?? false;
 
-    // Must NOT implement IHaveInheritedTenantId (directly or via inheritance)
-    var hasInheritedTenantId = clrType.IsAssignableTo(typeof(IHaveInheritedTenantId));
+  private static bool EntityHaveAudit(Type clrType) =>
+    clrType?.IsAssignableTo(typeof(IAuditableEntity)) ?? false;
 
-    return hasTenantId && !hasInheritedTenantId;
-  }
-
-  /// <summary>
-  /// Determines if the specified CLR type implements the <see cref="IHaveNullableTenantId"/> interface.
-  /// </summary>
-  /// <param name="clrType">The CLR type to check.</param>
-  /// <returns>True if the type implements <see cref="IHaveNullableTenantId"/>; otherwise, false.</returns>
-  private static bool EntityHaveNullableTenant(Type clrType) => clrType?.IsAssignableTo(typeof(IHaveNullableTenantId)) ?? false;
-
-  /// <summary>
-  /// Determines if the specified CLR type implements the <see cref="IAuditableEntity"/> interface.
-  /// </summary>
-  /// <param name="clrType">The CLR type to check.</param>
-  /// <returns>True if the type implements <see cref="IAuditableEntity"/>; otherwise, false.</returns>
-  private static bool EntityHaveAudit(Type clrType) => clrType?.IsAssignableTo(typeof(IAuditableEntity)) ?? false;
-
-  /// <summary>
-  /// Saves all changes made in this context to the database.
-  /// </summary>
-  /// <param name="acceptAllChangesOnSuccess">Indicates whether <see cref="ChangeTracker.AcceptAllChanges"/> is called after the changes have been sent successfully to the database.</param>
-  /// <returns>The number of state entries written to the database.</returns>
+  /// <inheritdoc />
   public override int SaveChanges(bool acceptAllChangesOnSuccess) {
-#pragma warning disable S4462 // Sonar: prefer await over GetResult
+#pragma warning disable S4462 // Allowed sync bridge pattern
     ApplyContextualChangesAsync().GetAwaiter().GetResult();
 #pragma warning restore S4462
     return base.SaveChanges(acceptAllChangesOnSuccess);
   }
 
-  /// <summary>
-  /// Saves all changes made in this context to the database asynchronously.
-  /// </summary>
-  /// <param name="acceptAllChangesOnSuccess">Indicates whether <see cref="ChangeTracker.AcceptAllChanges"/> is called after the changes have been sent successfully to the database.</param>
-  /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
-  /// <returns>A task that represents the asynchronous save operation. The task result contains the number of state entries written to the database.</returns>
+  /// <inheritdoc />
   public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default) {
     await ApplyContextualChangesAsync();
     return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
   }
 
   #region Application Contextual Changes
-
-  /// <summary>
-  /// Applies contextual changes (tenant isolation and audit information) to entities 
-  /// before they are saved to the database.
-  /// </summary>
-  /// <returns>A task representing the asynchronous operation.</returns>
-  /// <remarks>
-  /// This method orchestrates the application of tenant enforcement and audit information
-  /// in the correct order, ensuring data isolation and proper tracking of entity changes.
-  /// </remarks>
+  /// <summary>Applies tenant enforcement and audit metadata prior to persistence.</summary>
   private async Task ApplyContextualChangesAsync() {
     await ApplyTenantIdEnforcementAsync();
     await ApplyAuditInformationAsync();
   }
 
-  // No synchronous variant: sync SaveChanges bridges to async with explicit suppression pragmas.
-
-  /// <summary>
-  /// Enforces tenant isolation for entities implementing <see cref="IHaveTenantId"/> 
-  /// and validates tenant context for <see cref="IHaveNullableTenantId"/> entities.
-  /// </summary>
-  /// <returns>A task representing the asynchronous operation.</returns>
-  /// <exception cref="UnauthorizedAccessException">
-  /// Thrown when an entity belongs to a different tenant than the current context
-  /// or when an <see cref="IHaveTenantId"/> entity is created without a tenant in over-tenant mode.
-  /// </exception>
-  /// <remarks>
-  /// <para>
-  /// This method enforces multi-tenant data isolation by:
-  /// <list type="bullet">
-  ///   <item><description>Setting tenant ID for new entities that don't have one specified</description></item>
-  ///   <item><description>Validating that all entity operations respect tenant boundaries</description></item>
-  ///   <item><description>Preventing tenant switching on existing entities</description></item>
-  /// </list>
-  /// </para>
-  /// <para>
-  /// For over-tenant accounts (_TenantId == null), enforcement is skipped except for
-  /// validating that IHaveTenantId entities have a tenant specified.
-  /// </para>
-  /// </remarks>
+  /// <summary>Applies multi-tenant invariants to tracked entities.</summary>
   private async Task ApplyTenantIdEnforcementAsync() {
     foreach (var entry in ChangeTracker.Entries()) {
       await ProcessTenantEnforcementEntryAsync(entry);
@@ -229,132 +173,81 @@ public class NsiDbContext<TUser>: DbContext {
   private async Task ProcessTenantEnforcementEntryAsync(EntityEntry entry) {
     var entityTypeName = entry.Entity.GetType().Name;
 
-    // IHaveTenantId path
     if (entry.Entity is IHaveTenantId tenantEntity) {
-      await ProcessHaveTenantIdEntryAsync(entry, tenantEntity, entityTypeName);
+      await HandleTenantIdForAddedOrChangedEntityAsync(entry, tenantEntity, entityTypeName);
       return;
     }
 
-    // IHaveNullableTenantId path (only consider changed states)
     if (entry.Entity is IHaveNullableTenantId nullableTenantEntity) {
       await ProcessNullableTenantIdEntryAsync(entry, nullableTenantEntity, entityTypeName);
     }
   }
 
-  private async Task ProcessHaveTenantIdEntryAsync(EntityEntry entry, IHaveTenantId tenantEntity, string entityTypeName) {
+  private Task HandleTenantIdForAddedOrChangedEntityAsync(EntityEntry entry, IHaveTenantId tenantEntity, string entityTypeName) {
     if (entry.State == EntityState.Added) {
-      await HandleTenantIdForAddedEntityAsync(entry, entityTypeName);
-      return;
+      return HandleTenantIdForAddedEntityAsync(entry, entityTypeName);
     }
     if (entry.State is EntityState.Modified or EntityState.Deleted) {
-      await HandleTenantIdForModifiedOrDeletedEntityAsync(tenantEntity, entityTypeName, entry.State);
+      return HandleTenantIdForModifiedOrDeletedEntityAsync(tenantEntity, entityTypeName, entry.State);
     }
+    return Task.CompletedTask;
   }
 
-  private async Task ProcessNullableTenantIdEntryAsync(EntityEntry entry, IHaveNullableTenantId nullableTenantEntity, string entityTypeName) {
+  private Task ProcessNullableTenantIdEntryAsync(EntityEntry entry, IHaveNullableTenantId nullableTenantEntity, string entityTypeName) {
     if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) {
-      return;
+      return Task.CompletedTask;
     }
     if (_TenantId == null) {
-      return; // over-tenant
+      return Task.CompletedTask; // over‑tenant skip
     }
     if (nullableTenantEntity.TenantId == null || nullableTenantEntity.TenantId.Equals(_TenantId)) {
-      await HandleNullableTenantIdValidationAsync(nullableTenantEntity, entityTypeName, entry.State);
-      return;
+      return HandleNullableTenantIdValidationAsync(nullableTenantEntity, entityTypeName, entry.State);
     }
     throw new UnauthorizedAccessException($"Entity {entityTypeName} must belong to the current tenant context.");
   }
 
-  /// <summary>
-  /// Handles tenant ID enforcement for entities being added to the context.
-  /// </summary>
-  /// <param name="entry">The entity entry being processed.</param>
-  /// <param name="entityTypeName">The name of the entity type for error messages.</param>
-  /// <returns>A task representing the asynchronous operation.</returns>
-  private async Task HandleTenantIdForAddedEntityAsync(EntityEntry entry, string entityTypeName) {
+  private Task HandleTenantIdForAddedEntityAsync(EntityEntry entry, string entityTypeName) {
     var tenantIdProperty = entry.Property(nameof(IHaveTenantId.TenantId));
     var currentTenantId = (TenantId?)tenantIdProperty.CurrentValue;
 
     if (currentTenantId == null || currentTenantId.Equals(TenantId.Empty)) {
-      // TenantId not specified
       if (_TenantId == null) {
-        // Over-tenant account - IHaveTenantId entities must have a tenant
         throw new UnauthorizedAccessException(
           $"Entity {entityTypeName} must have a tenant ID specified when created in over-tenant context.");
       }
-
-      // Set the current tenant ID
       tenantIdProperty.CurrentValue = _TenantId;
-    } else {
-      // TenantId specified - validate it matches current context
-      if (_TenantId != null && !currentTenantId.Equals(_TenantId)) {
-        throw new UnauthorizedAccessException(
-          $"Entity {entityTypeName} must belong to the current tenant context.");
-      }
+    } else if (_TenantId != null && !currentTenantId.Equals(_TenantId)) {
+      throw new UnauthorizedAccessException(
+        $"Entity {entityTypeName} must belong to the current tenant context.");
     }
 
-    await Task.CompletedTask;
+    return Task.CompletedTask;
   }
 
-  /// <summary>
-  /// Handles tenant ID validation for entities being modified or deleted.
-  /// </summary>
-  /// <param name="tenantEntity">The entity implementing IHaveTenantId.</param>
-  /// <param name="entityTypeName">The name of the entity type for error messages.</param>
-  /// <param name="entityState">The current state of the entity.</param>
-  /// <returns>A task representing the asynchronous operation.</returns>
-  private async Task HandleTenantIdForModifiedOrDeletedEntityAsync(IHaveTenantId tenantEntity, string entityTypeName, EntityState entityState) {
-    // Skip validation for over-tenant accounts
+  private Task HandleTenantIdForModifiedOrDeletedEntityAsync(IHaveTenantId tenantEntity, string entityTypeName, EntityState entityState) {
     if (_TenantId == null) {
-      await Task.CompletedTask;
-      return;
+      return Task.CompletedTask; // over‑tenant can bypass
     }
-
-    var currentTenantId = tenantEntity.TenantId;
-
-    if (!currentTenantId.Equals(_TenantId)) {
+    if (!tenantEntity.TenantId.Equals(_TenantId)) {
       throw new UnauthorizedAccessException(
         $"Entity {entityTypeName} belongs to a different tenant and cannot be {entityState} in current context.");
     }
-
-    await Task.CompletedTask;
+    return Task.CompletedTask;
   }
 
-  /// <summary>
-  /// Handles tenant ID validation for nullable tenant entities.
-  /// </summary>
-  /// <param name="nullableTenantEntity">The entity implementing IHaveNullableTenantId.</param>
-  /// <param name="entityTypeName">The name of the entity type for error messages.</param>
-  /// <param name="entityState">The current state of the entity.</param>
-  /// <returns>A task representing the asynchronous operation.</returns>
-  private async Task HandleNullableTenantIdValidationAsync(IHaveNullableTenantId nullableTenantEntity, string entityTypeName, EntityState entityState) {
-
-    // Skip validation for over-tenant accounts
+  private Task HandleNullableTenantIdValidationAsync(IHaveNullableTenantId nullableTenantEntity, string entityTypeName, EntityState entityState) {
     if (_TenantId == null) {
-      await Task.CompletedTask;
-      return;
+      return Task.CompletedTask;
     }
-
     var currentTenantId = nullableTenantEntity.TenantId;
-
-    // If TenantId is specified, validate it matches current context
     if (currentTenantId != null && !currentTenantId.Equals(_TenantId)) {
       throw new UnauthorizedAccessException(
         $"Entity {entityTypeName} belongs to a different tenant and cannot be {entityState} in current context.");
     }
-
-    await Task.CompletedTask;
+    return Task.CompletedTask;
   }
 
-  /// <summary>
-  /// Applies audit information to entities implementing <see cref="IAuditableEntity"/> 
-  /// before they are saved to the database.
-  /// </summary>
-  /// <returns>A task representing the asynchronous operation.</returns>
-  /// <remarks>
-  /// This method sets creation and modification timestamps and user information
-  /// for entities that support auditing capabilities.
-  /// </remarks>
+  /// <summary>Populates audit fields (Created*/Modified*) for <see cref="IAuditableEntity"/> entries.</summary>
   private async Task ApplyAuditInformationAsync() {
     var now = _TimeProvider.GetUtcNow().UtcDateTime;
     var userInfo = await _UserAccessor.GetCurrentUserInfoAsync();
@@ -373,7 +266,5 @@ public class NsiDbContext<TUser>: DbContext {
       }
     }
   }
-
+  #endregion
 }
-
-#endregion

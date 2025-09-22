@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -38,7 +39,8 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
     var services = new ServiceCollection();
 
     // Register mediator and logging
-    services.AddSingleton<ILogger<MediatorImplementation>>(NullLogger<MediatorImplementation>.Instance);
+    services.AddSingleton<ILogger<MediatorImplementation>>(
+      NullLogger<MediatorImplementation>.Instance);
     services.AddSingleton<ILogger<LoggingDecorator<TestQuery, TestResponse>>>(
       NullLogger<LoggingDecorator<TestQuery, TestResponse>>.Instance);
     services.AddSingleton<ILogger<ValidationDecorator<TestQuery, TestResponse>>>(
@@ -52,17 +54,24 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
 
     // Register handlers
     services.AddScoped<IRequestHandler<TestQuery, TestResponse>, TestQueryHandler>();
-    services.AddScoped<IRequestHandler<ValidatedTestCommand, TestResponse>, ValidatedTestCommandHandler>();
-    services.AddScoped<IRequestHandler<ExecutionOrderTestQuery, TestResponse>, ExecutionOrderTestQueryHandler>();
+    services.AddScoped<IRequestHandler<ValidatedTestCommand, TestResponse>,
+      ValidatedTestCommandHandler>();
+    services.AddScoped<IRequestHandler<ExecutionOrderTestQuery, TestResponse>,
+      ExecutionOrderTestQueryHandler>();
 
     // Register decorators
-    services.AddScoped<IRequestDecorator<TestQuery, TestResponse>, LoggingDecorator<TestQuery, TestResponse>>();
-    services.AddScoped<IRequestDecorator<TestQuery, TestResponse>, ValidationDecorator<TestQuery, TestResponse>>();
+    services.AddScoped<IRequestDecorator<TestQuery, TestResponse>,
+      LoggingDecorator<TestQuery, TestResponse>>();
+    services.AddScoped<IRequestDecorator<TestQuery, TestResponse>,
+      ValidationDecorator<TestQuery, TestResponse>>();
 
-    services.AddScoped<IRequestDecorator<ValidatedTestCommand, TestResponse>, ValidationDecorator<ValidatedTestCommand, TestResponse>>();
-    services.AddScoped<IRequestDecorator<ValidatedTestCommand, TestResponse>, LoggingDecorator<ValidatedTestCommand, TestResponse>>();
+    services.AddScoped<IRequestDecorator<ValidatedTestCommand, TestResponse>,
+      ValidationDecorator<ValidatedTestCommand, TestResponse>>();
+    services.AddScoped<IRequestDecorator<ValidatedTestCommand, TestResponse>,
+      LoggingDecorator<ValidatedTestCommand, TestResponse>>();
 
-    services.AddScoped<IRequestDecorator<ExecutionOrderTestQuery, TestResponse>, ExecutionOrderDecorator>();
+    services.AddScoped<IRequestDecorator<ExecutionOrderTestQuery, TestResponse>,
+      ExecutionOrderDecorator>();
 
     // Register validators using the new NSI.Core.Validation framework
     services.AddScoped<IValidator<ValidatedTestCommand>, ValidatedTestCommandValidator>();
@@ -89,7 +98,8 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
   /// <summary>
   /// Test query for execution order validation.
   /// </summary>
-  internal sealed record ExecutionOrderTestQuery(List<string> ExecutionOrder): IQuery<TestResponse>;
+  internal sealed record ExecutionOrderTestQuery(List<string> ExecutionOrder):
+    IQuery<TestResponse>;
 
   /// <summary>
   /// Test response type.
@@ -100,17 +110,21 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
   /// Validator for ValidatedTestCommand using NSI.Core.Validation framework.
   /// </summary>
   internal sealed class ValidatedTestCommandValidator: Validator<ValidatedTestCommand> {
-    public ValidatedTestCommandValidator() => this.Required(x => x.Name)
-          .StringLength(x => x.Name, minLength: 2, maxLength: 50)
-          .Required(x => x.Email)
-          .Email(x => x.Email);
+    public ValidatedTestCommandValidator() => this
+      .Required(x => x.Name)
+      .StringLength(x => x.Name, minLength: 2, maxLength: 50)
+      .Required(x => x.Email)
+      .Email(x => x.Email);
   }
 
   /// <summary>
   /// Handler for test queries.
   /// </summary>
   internal sealed class TestQueryHandler: IRequestHandler<TestQuery, TestResponse> {
-    public Task<Result<TestResponse>> HandleAsync(TestQuery request, CancellationToken cancellationToken = default) {
+    public Task<Result<TestResponse>> HandleAsync(
+      TestQuery request,
+      CancellationToken cancellationToken = default) {
+
       var response = new TestResponse($"Processed: {request.Data}");
       return Task.FromResult(Result.Success(response));
     }
@@ -120,7 +134,10 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
   /// Handler for validated test commands.
   /// </summary>
   internal sealed class ValidatedTestCommandHandler: IRequestHandler<ValidatedTestCommand, TestResponse> {
-    public Task<Result<TestResponse>> HandleAsync(ValidatedTestCommand request, CancellationToken cancellationToken = default) {
+    public Task<Result<TestResponse>> HandleAsync(
+      ValidatedTestCommand request,
+      CancellationToken cancellationToken = default) {
+
       var response = new TestResponse($"Created user: {request.Name} ({request.Email})");
       return Task.FromResult(Result.Success(response));
     }
@@ -130,7 +147,10 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
   /// Handler for execution order test queries.
   /// </summary>
   internal sealed class ExecutionOrderTestQueryHandler: IRequestHandler<ExecutionOrderTestQuery, TestResponse> {
-    public Task<Result<TestResponse>> HandleAsync(ExecutionOrderTestQuery request, CancellationToken cancellationToken = default) {
+    public Task<Result<TestResponse>> HandleAsync(
+      ExecutionOrderTestQuery request,
+      CancellationToken cancellationToken = default) {
+
       request.ExecutionOrder.Add("Handler");
       var response = new TestResponse("Handler executed");
       return Task.FromResult(Result.Success(response));
@@ -140,7 +160,9 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
   /// <summary>
   /// Decorator that tracks execution order.
   /// </summary>
-  internal sealed class ExecutionOrderDecorator: IRequestDecorator<ExecutionOrderTestQuery, TestResponse> {
+  internal sealed class ExecutionOrderDecorator:
+    IRequestDecorator<ExecutionOrderTestQuery, TestResponse> {
+
     public async Task<Result<TestResponse>> HandleAsync(
       ExecutionOrderTestQuery request,
       RequestHandlerFunction<TestResponse> continuation,
@@ -205,8 +227,10 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
     Assert.True(result.Error.ValidationErrors.Count > 0);
 
     // Verify we have errors for both Name and Email
-    var nameErrors = result.Error.ValidationErrors.Where(e => e.PropertyName == nameof(ValidatedTestCommand.Name));
-    var emailErrors = result.Error.ValidationErrors.Where(e => e.PropertyName == nameof(ValidatedTestCommand.Email));
+    var nameErrors = result.Error.ValidationErrors
+      .Where(e => e.PropertyName == nameof(ValidatedTestCommand.Name));
+    var emailErrors = result.Error.ValidationErrors
+      .Where(e => e.PropertyName == nameof(ValidatedTestCommand.Email));
 
     Assert.NotEmpty(nameErrors);
     Assert.NotEmpty(emailErrors);
@@ -285,12 +309,14 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
   public async Task ProcessAsync_WithHandlerThatFails_ShouldPropagateErrorThroughPipeline() {
     // Arrange - Create a service collection with a failing handler
     var services = new ServiceCollection();
-    services.AddSingleton<ILogger<MediatorImplementation>>(NullLogger<MediatorImplementation>.Instance);
+    services.AddSingleton<ILogger<MediatorImplementation>>(
+      NullLogger<MediatorImplementation>.Instance);
     services.AddSingleton<ILogger<LoggingDecorator<TestQuery, TestResponse>>>(
       NullLogger<LoggingDecorator<TestQuery, TestResponse>>.Instance);
     services.AddScoped<IMediator, MediatorImplementation>();
     services.AddScoped<IRequestHandler<TestQuery, TestResponse>, FailingTestQueryHandler>();
-    services.AddScoped<IRequestDecorator<TestQuery, TestResponse>, LoggingDecorator<TestQuery, TestResponse>>();
+    services.AddScoped<IRequestDecorator<TestQuery, TestResponse>,
+      LoggingDecorator<TestQuery, TestResponse>>();
 
     using var serviceProvider = services.BuildServiceProvider();
     var mediator = serviceProvider.GetRequiredService<IMediator>();
@@ -310,8 +336,13 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
   /// Handler that always fails for testing error propagation.
   /// </summary>
   internal sealed class FailingTestQueryHandler: IRequestHandler<TestQuery, TestResponse> {
-    public Task<Result<TestResponse>> HandleAsync(TestQuery request, CancellationToken cancellationToken = default) {
-      var error = ResultError.BusinessRule("HANDLER_FAILURE", "Handler intentionally failed");
+    public Task<Result<TestResponse>> HandleAsync(
+      TestQuery request,
+      CancellationToken cancellationToken = default) {
+
+      var error = ResultError.BusinessRule(
+        "HANDLER_FAILURE",
+        "Handler intentionally failed");
       return Task.FromResult(Result.Failure<TestResponse>(error));
     }
   }
@@ -360,11 +391,14 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
     Assert.NotNull(result.Error.ValidationErrors);
 
     // Should have REQUIRED errors for both Name and Email
-    var requiredErrors = result.Error.ValidationErrors.Where(e => e.ErrorCode == "REQUIRED").ToList();
+    var requiredErrors = result.Error.ValidationErrors
+      .Where(e => e.ErrorCode == "REQUIRED").ToList();
     Assert.True(requiredErrors.Count >= 2);
 
-    var nameRequired = requiredErrors.Any(e => e.PropertyName == nameof(ValidatedTestCommand.Name));
-    var emailRequired = requiredErrors.Any(e => e.PropertyName == nameof(ValidatedTestCommand.Email));
+    var nameRequired = requiredErrors
+      .Any(e => e.PropertyName == nameof(ValidatedTestCommand.Name));
+    var emailRequired = requiredErrors
+      .Any(e => e.PropertyName == nameof(ValidatedTestCommand.Email));
 
     Assert.True(nameRequired);
     Assert.True(emailRequired);
@@ -378,7 +412,7 @@ public sealed class MediatorPipelineIntegrationTests: IDisposable {
   public async Task ProcessAsync_WithPipeline_ShouldCompleteWithinReasonableTime() {
     // Arrange
     var query = new TestQuery("performance-test");
-    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+    var stopwatch = Stopwatch.StartNew();
 
     // Act - Execute multiple times to get average performance
     const int iterations = 100;

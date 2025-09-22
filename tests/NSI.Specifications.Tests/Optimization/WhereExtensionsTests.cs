@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using NSI.Specifications.Abstractions;
 using NSI.Specifications.Filtering;
@@ -23,6 +20,7 @@ public class WhereExtensionsTests {
         Expression<Func<int, bool>> expr = x => x % 2 == 0; // force even numbers
         return expr;
       }
+
       return null;
     }
   }

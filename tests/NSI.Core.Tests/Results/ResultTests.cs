@@ -7,7 +7,8 @@ namespace NSI.Core.Tests.Results;
 /// <remarks>
 /// <para>
 /// These tests verify the core functionality of the Result pattern implementation.
-/// Coverage includes creation, property access, transformation operations, and equality behavior.
+/// Coverage includes creation, property access, transformation operations, and equality
+/// behavior.
 /// </para>
 /// <para>
 /// Test categories:
@@ -39,9 +40,13 @@ public class ResultTests {
   public void Success_WithNullValue_ShouldThrowArgumentNullException() {
     string? nullValue = null;
 
-    var exception = Assert.Throws<ArgumentNullException>(() => Result.Success(nullValue!));
+    var exception = Assert.Throws<ArgumentNullException>(() =>
+      Result.Success(nullValue!));
     Assert.Equal("value", exception.ParamName);
-    Assert.StartsWith("Success value cannot be null", exception.Message, StringComparison.Ordinal);
+    Assert.StartsWith(
+      "Success value cannot be null",
+      exception.Message,
+      StringComparison.Ordinal);
   }
 
   [Fact]
@@ -58,7 +63,8 @@ public class ResultTests {
   public void Error_OnSuccessResult_ShouldThrowInvalidOperationException() {
     var result = Result.Success(42);
 
-    var exception = Assert.Throws<InvalidOperationException>(() => _ = result.Error);
+    var exception = Assert.Throws<InvalidOperationException>(() =>
+      _ = result.Error);
     Assert.Equal("Cannot access Error of a success result", exception.Message);
   }
 
@@ -91,19 +97,22 @@ public class ResultTests {
   }
 
   [Fact]
-  public void Failure_WithNullMessage_ShouldThrowArgumentNullException() => Assert.Throws<ArgumentNullException>(() => Result.Failure<int>(null!));
+  public void Failure_WithNullMessage_ShouldThrowArgumentNullException() =>
+    Assert.Throws<ArgumentNullException>(() => Result.Failure<int>(null!));
 
   [Theory]
   [InlineData(" ")]
   [InlineData("\t")]
   [InlineData("")]
-  public void Failure_WithEmptyOrSpaceMessage_ShouldThrowArgumentException(string message) => Assert.Throws<ArgumentException>(() => Result.Failure<int>(message));
+  public void Failure_WithEmptyOrSpaceMessage_ShouldThrowArgumentException(string message) =>
+    Assert.Throws<ArgumentException>(() => Result.Failure<int>(message));
 
   [Fact]
   public void Value_OnFailureResult_ShouldThrowInvalidOperationException() {
     var result = Result.Failure<int>("Error");
 
-    var exception = Assert.Throws<InvalidOperationException>(() => _ = result.Value);
+    var exception = Assert.Throws<InvalidOperationException>(() =>
+      _ = result.Value);
     Assert.Equal("Cannot access Value of a failure result", exception.Message);
   }
 
@@ -146,7 +155,8 @@ public class ResultTests {
   public void Map_WithNullMapper_ShouldThrowArgumentNullException() {
     var result = Result.Success(5);
 
-    var exception = Assert.Throws<ArgumentNullException>(() => result.Map<int>(null!));
+    var exception = Assert.Throws<ArgumentNullException>(() =>
+      result.Map<int>(null!));
     Assert.Equal("mapper", exception.ParamName);
   }
 
@@ -190,7 +200,8 @@ public class ResultTests {
   public void Bind_WithNullBinder_ShouldThrowArgumentNullException() {
     var result = Result.Success(5);
 
-    var exception = Assert.Throws<ArgumentNullException>(() => result.Bind<int>(null!));
+    var exception = Assert.Throws<ArgumentNullException>(() =>
+      result.Bind<int>(null!));
     Assert.Equal("binder", exception.ParamName);
   }
 
@@ -204,8 +215,7 @@ public class ResultTests {
 
     var matched = result.Match(
       onSuccess: value => $"Success: {value}",
-      onFailure: error => $"Error: {error.Message}"
-    );
+      onFailure: error => $"Error: {error.Message}");
 
     Assert.Equal("Success: 42", matched);
   }
@@ -216,8 +226,7 @@ public class ResultTests {
 
     var matched = result.Match(
       onSuccess: value => $"Success: {value}",
-      onFailure: error => $"Error: {error.Message}"
-    );
+      onFailure: error => $"Error: {error.Message}");
 
     Assert.Equal("Error: Test error", matched);
   }
@@ -226,7 +235,8 @@ public class ResultTests {
   public void Match_WithNullOnSuccess_ShouldThrowArgumentNullException() {
     var result = Result.Success(42);
 
-    var ex = Assert.Throws<ArgumentNullException>(() => result.Match<string>(null!, e => "Error"));
+    var ex = Assert.Throws<ArgumentNullException>(() =>
+      result.Match<string>(null!, e => "Error"));
     Assert.Equal("onSuccess", ex.ParamName);
   }
 
@@ -234,7 +244,8 @@ public class ResultTests {
   public void Match_WithNullOnFailure_ShouldThrowArgumentNullException() {
     var result = Result.Success(42);
 
-    var ex = Assert.Throws<ArgumentNullException>(() => result.Match<string>(v => "Success", null!));
+    var ex = Assert.Throws<ArgumentNullException>(() =>
+      result.Match<string>(v => "Success", null!));
     Assert.Equal("onFailure", ex.ParamName);
   }
 

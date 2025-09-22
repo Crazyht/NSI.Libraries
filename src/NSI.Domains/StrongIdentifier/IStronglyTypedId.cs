@@ -3,44 +3,57 @@ using System.Diagnostics.CodeAnalysis;
 namespace NSI.Domains.StrongIdentifier;
 
 /// <summary>
-/// Marker interface for implementing the strongly-typed ID pattern.
+/// Marker interface enabling the strongly‑typed ID pattern (type-safe identifiers).
 /// </summary>
 /// <remarks>
 /// <para>
-/// This interface enables type-safe identifiers throughout the application by providing
-/// a common base type for ID classes. It helps prevent primitive obsession and ensures 
-/// that different entity IDs cannot be accidentally mixed or confused.
+/// Provides a common constraint for generic APIs (e.g., base entities, repositories,
+/// serializers, EF Core converters) to ensure only approved strongly‑typed identifiers
+/// are supplied. Prevents mixing primitive <c>Guid</c>/string values across domains and
+/// mitigates accidental parameter swaps (compile-time safety over runtime failures).
 /// </para>
-/// <para>
-/// Used in conjunction with <see cref="StronglyTypedId{TId, TUnderlying}"/>, this interface
-/// facilitates:
-/// </para>
+/// <para>Semantics:
 /// <list type="bullet">
-///   <item><description>Type-safety for ID parameters and properties</description></item>
-///   <item><description>Generic constraints for base classes like <see cref="Entity{TId}"/></description></item>
-///   <item><description>Automatic conversions for Entity Framework Core via <c>NSI.EntityFramework.Converters.StronglyTypedIdValueConverter&lt;TId, TUnderlying&gt;</c></description></item>
-///   <item><description>Seamless JSON serialization through <c>NSI.Json.StronglyTypedIdJsonConverterFactory</c></description></item>
+///   <item><description>No runtime behavior; purely a compile-time contract.</description></item>
+///   <item><description>Implemented by lightweight immutable ID types (usually <c>record struct</c> or <c>sealed record</c>).</description></item>
+///   <item><description>Acts as generic constraint in <c>Entity&lt;TId&gt;</c>, converters, serializers.</description></item>
+///   <item><description>Does not mandate an underlying primitive accessor (handled by base generic type).</description></item>
 /// </list>
+/// </para>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Name IDs with <c>Id</c> suffix (e.g., <c>UserId</c>, <c>OrderId</c>).</description></item>
+///   <item><description>Prefer <c>record struct</c> for allocation-free value semantics unless reference identity needed.</description></item>
+///   <item><description>Expose a single <c>Value</c> property (primitive) via the shared base <c>StronglyTypedId&lt;TId,TUnderlying&gt;</c>.</description></item>
+///   <item><description>Keep factories / parsing logic on the concrete ID type (e.g., <c>UserId.New()</c>).</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: Implementations are immutable; safe to cache and share.</para>
+/// <para>Performance: Eliminates boxing / allocations when implemented as value types;
+/// overhead is typically one primitive field.</para>
 /// </remarks>
 /// <example>
-/// Usage example:
 /// <code>
-/// // Define a strongly-typed ID for users
-/// public sealed record UserId(Guid Value) : StronglyTypedId&lt;UserId, Guid>(Value);
-/// 
-/// // Use in an entity class
-/// public class User : Entity&lt;UserId&gt;
-/// {
-///     public string Email { get; set; }
-///     public string Name { get; set; }
+/// // Strongly-typed Guid-based identifier
+/// public readonly record struct UserId(Guid Value)
+///   : StronglyTypedId&lt;UserId, Guid&gt;(Value);
+///
+/// // Usage in an aggregate root
+/// public sealed class User: Entity&lt;UserId&gt; {
+///   public string Email { get; private set; } = string.Empty;
+///   public User(UserId id, string email): base(id) => Email = email;
 /// }
-/// 
-/// // Type-safe usage in methods
-/// public User GetUserById(UserId id) { /* implementation */ }
+///
+/// // Generic repository constraint
+/// public interface IRepository&lt;TId, TAggregate&gt;
+///   where TId: struct, IStronglyTypedId
+///   where TAggregate: Entity&lt;TId&gt; { }
 /// </code>
 /// </example>
+/// <seealso cref="StronglyTypedId{TId, TUnderlying}"/>
+/// <seealso cref="Entity{TId}"/>
 [SuppressMessage(
   "Minor Code Smell",
   "S4023:Interfaces should not be empty",
-  Justification = "Marker interface for Generic Constraint.")]
+  Justification = "Intentional marker interface providing a generic constraint boundary for the strongly-typed ID pattern; adding members would force all ID types to carry unneeded API surface.")]
 public interface IStronglyTypedId { }

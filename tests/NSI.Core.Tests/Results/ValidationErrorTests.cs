@@ -6,7 +6,8 @@ namespace NSI.Core.Tests.Results;
 /// </summary>
 /// <remarks>
 /// <para>
-/// These tests verify the ValidationError implementation of IValidationError.
+/// These tests verify the <see cref="ValidationError"/> implementation of
+/// <see cref="NSI.Core.Validation.Abstractions.IValidationError"/>.
 /// </para>
 /// </remarks>
 public class ValidationErrorTests {

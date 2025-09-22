@@ -9,7 +9,8 @@ namespace NSI.Core.Tests.Results;
 /// <remarks>
 /// <para>
 /// These tests verify the ResultError type's construction, equality, and conversion behavior.
-/// The ResultError type is fundamental to the Result pattern and must maintain proper value semantics.
+/// The ResultError type is fundamental to the Result pattern and must maintain proper value
+/// semantics.
 /// </para>
 /// <para>
 /// Test coverage includes:
@@ -30,7 +31,9 @@ public class ResultErrorTests {
     const string code = "VALIDATION_ERROR";
     const string message = "Email is required";
     var exception = new ArgumentException("Test exception");
-    var validationErrors = new List<IValidationError> { new ValidationError("Email", "Required", "REQUIRED") };
+    var validationErrors = new List<IValidationError> {
+      new ValidationError("Email", "Required", "REQUIRED")
+    };
 
     var error = new ResultError(type, code, message, exception, validationErrors);
 
@@ -87,9 +90,9 @@ public class ResultErrorTests {
     const string code = "INVALID_INPUT";
     const string message = "Validation failed";
     var validationErrors = new List<IValidationError> {
-    new ValidationError("Email", "Email is required", "REQUIRED"),
-    new ValidationError("Password", "Password too short", "MIN_LENGTH")
-  };
+      new ValidationError("Email", "Email is required", "REQUIRED"),
+      new ValidationError("Password", "Password too short", "MIN_LENGTH")
+    };
 
     var error = ResultError.Validation(code, message, validationErrors);
 
@@ -121,7 +124,8 @@ public class ResultErrorTests {
   public void Validation_WithNullValidationErrors_ShouldThrowArgumentNullException() {
     IEnumerable<IValidationError>? nullErrors = null;
 
-    var exception = Assert.Throws<ArgumentNullException>(() => ResultError.Validation("CODE", "Message", nullErrors!));
+    var exception = Assert.Throws<ArgumentNullException>(() =>
+      ResultError.Validation("CODE", "Message", nullErrors!));
     Assert.Equal("validationErrors", exception.ParamName);
   }
 
@@ -228,7 +232,8 @@ public class ResultErrorTests {
   [Theory]
   [InlineData("")]
   [InlineData(" ")]
-  public void StaticMethods_WithInvalidMessage_ShouldThrowArgumentException(string invalidMessage) {
+  public void StaticMethods_WithInvalidMessage_ShouldThrowArgumentException(
+    string invalidMessage) {
     void UnauthorizedAction() => ResultError.Unauthorized("CODE", invalidMessage);
     void ForbiddenAction() => ResultError.Forbidden("CODE", invalidMessage);
     void NotFoundAction() => ResultError.NotFound("CODE", invalidMessage);

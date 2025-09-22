@@ -1,10 +1,7 @@
-using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading.Tasks;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Microsoft.EntityFrameworkCore;
-using NSI.Specifications.Filtering.Text;
 using NSI.Specifications.Npgsql.Optimization.Npgsql;
 
 namespace NSI.Specifications.Npgsql.Tests;

@@ -43,7 +43,8 @@ public class MockLoggerTests {
   [Fact]
   public void Constructor_WithNullStore_ShouldThrowArgumentNullException() {
     // Execute and verify exception
-    var exception = Assert.Throws<ArgumentNullException>(() => new MockLogger<TestService>(null!));
+    var exception = Assert.Throws<ArgumentNullException>(
+      () => new MockLogger<TestService>(null!));
     Assert.Equal("store", exception.ParamName);
   }
 
@@ -74,7 +75,12 @@ public class MockLoggerTests {
     var exception = new InvalidOperationException("Test exception");
 
     // Execute log operation
-    logger.Log(logLevel, eventId, state, exception, (s, _) => $"Formatted: {s}");
+    logger.Log(
+      logLevel,
+      eventId,
+      state,
+      exception,
+      (s, _) => $"Formatted: {s}");
 
     // Verify log entry is stored
     var entries = store.GetAll();
@@ -98,8 +104,8 @@ public class MockLoggerTests {
     var logger = new MockLogger<TestService>(store);
 
     // Execute and verify exception
-    var exception = Assert.Throws<ArgumentNullException>(() =>
-      logger.Log(LogLevel.Information, new EventId(1), "state", null, null!));
+    var exception = Assert.Throws<ArgumentNullException>(
+      () => logger.Log(LogLevel.Information, new EventId(1), "state", null, null!));
 
     Assert.Equal("formatter", exception.ParamName);
   }
@@ -112,7 +118,12 @@ public class MockLoggerTests {
     var stateArray = new object[] { "item1", "item2", 42 };
 
     // Execute log operation
-    logger.Log(LogLevel.Debug, new EventId(1), stateArray, null, (_, _) => "Array message");
+    logger.Log(
+      LogLevel.Debug,
+      new EventId(1),
+      stateArray,
+      null,
+      (_, _) => "Array message");
 
     // Verify state array is preserved
     var entries = store.GetAll();
@@ -150,8 +161,10 @@ public class MockLoggerTests {
     "Performance",
     "CA1848:Use the LoggerMessage delegates",
     Justification = "We also need to test not performance method.")]
-  [SuppressMessage("Performance",
-    "CA2254: The logging message template should not vary between calls to 'LoggerExtensions.BeginScope(ILogger, string, params object?[])'",
+  [SuppressMessage(
+    "Performance",
+    "CA2254: The logging message template should not vary between calls to "
+      + "'LoggerExtensions.BeginScope(ILogger, string, params object?[])'",
     Justification = "Test case requires dynamic scope state.")]
   public void BeginScope_WithNullState_ShouldThrowArgumentNullException() {
     // Setup logger
@@ -159,7 +172,8 @@ public class MockLoggerTests {
     var logger = new MockLogger<TestService>(store);
 
     // Execute and verify exception
-    var exception = Assert.Throws<ArgumentNullException>(() => logger.BeginScope<object>(null!));
+    var exception = Assert.Throws<ArgumentNullException>(
+      () => logger.BeginScope<object>(null!));
     Assert.Equal("state", exception.ParamName);
   }
 
@@ -200,7 +214,7 @@ public class MockLoggerTests {
     using (var scope = logger.BeginScope(scopeState)) {
       var startEntries = store.GetAll();
       scopeId = startEntries[0].ScopeId!.Value;
-    } // Scope disposed here
+    }
 
     // Verify scope end entry is created
     var allEntries = store.GetAll();
@@ -222,7 +236,12 @@ public class MockLoggerTests {
 
     // Execute logging within scope
     using var scope = logger.BeginScope(scopeState);
-    logger.Log(LogLevel.Information, new EventId(1), "Test message", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+    logger.Log(
+      LogLevel.Information,
+      new EventId(1),
+      "Test message",
+      null,
+      (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
     // Get scope ID from scope start entry
     var scopeStartEntry = store.GetAll().First(e => e.Type == EntryType.ScopeStart);
@@ -231,7 +250,7 @@ public class MockLoggerTests {
     // Verify log entry includes scope information
     var logEntry = store.GetAll().First(e => e.Type == EntryType.Log);
     Assert.Equal(scopeId, logEntry.ScopeId);
-    Assert.Null(logEntry.ParentScopeId); // No parent for first-level scope
+    Assert.Null(logEntry.ParentScopeId);
   }
 
   [Fact]
@@ -251,28 +270,41 @@ public class MockLoggerTests {
         innerScopeId = store.GetAll()[store.GetAll().Count - 1].ScopeId!.Value;
 
         // Log within inner scope
-        logger.Log(LogLevel.Information, new EventId(1), "Inner message", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+        logger.Log(
+          LogLevel.Information,
+          new EventId(1),
+          "Inner message",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
       }
 
       // Log within outer scope after inner scope ends
-      logger.Log(LogLevel.Warning, new EventId(2), "Outer message", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Warning,
+        new EventId(2),
+        "Outer message",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     // Verify hierarchy is maintained
     var entries = store.GetAll();
-    Assert.Equal(6, entries.Count); // 2 starts + 2 logs + 2 ends
+    Assert.Equal(6, entries.Count);
 
     // Verify inner scope has outer scope as parent
-    var innerScopeStart = entries.First(e => e.Type == EntryType.ScopeStart && e.ScopeId == innerScopeId);
+    var innerScopeStart = entries.First(e =>
+      e.Type == EntryType.ScopeStart && e.ScopeId == innerScopeId);
     Assert.Equal(outerScopeId, innerScopeStart.ParentScopeId);
 
     // Verify log in inner scope references both scopes correctly
-    var innerLog = entries.First(e => e.Type == EntryType.Log && e.Message == "Inner message");
+    var innerLog = entries.First(e =>
+      e.Type == EntryType.Log && e.Message == "Inner message");
     Assert.Equal(innerScopeId, innerLog.ScopeId);
     Assert.Equal(outerScopeId, innerLog.ParentScopeId);
 
     // Verify log in outer scope only references outer scope
-    var outerLog = entries.First(e => e.Type == EntryType.Log && e.Message == "Outer message");
+    var outerLog = entries.First(e =>
+      e.Type == EntryType.Log && e.Message == "Outer message");
     Assert.Equal(outerScopeId, outerLog.ScopeId);
     Assert.Null(outerLog.ParentScopeId);
   }
@@ -289,17 +321,27 @@ public class MockLoggerTests {
     // Execute sequential scopes at same level
     using (var firstScope = logger.BeginScope("First scope")) {
       firstScopeId = store.GetAll()[store.GetAll().Count - 1].ScopeId!.Value;
-      logger.Log(LogLevel.Information, new EventId(1), "First message", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId(1),
+        "First message",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     using (var secondScope = logger.BeginScope("Second scope")) {
       secondScopeId = store.GetAll()[store.GetAll().Count - 1].ScopeId!.Value;
-      logger.Log(LogLevel.Information, new EventId(2), "Second message", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId(2),
+        "Second message",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     // Verify scopes are independent
     var entries = store.GetAll();
-    Assert.Equal(6, entries.Count); // 2 starts + 2 logs + 2 ends
+    Assert.Equal(6, entries.Count);
 
     // Verify different scope IDs
     Assert.NotEqual(firstScopeId, secondScopeId);
@@ -319,13 +361,23 @@ public class MockLoggerTests {
     var task = Task.Run(async () => {
       using var scope = logger.BeginScope("Async scope");
       // Log before await
-      logger.Log(LogLevel.Information, new EventId(1), "Before await", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId(1),
+        "Before await",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       // Simulate async operation
       await Task.Delay(10);
 
       // Log after await - scope should still be active
-      logger.Log(LogLevel.Information, new EventId(2), "After await", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId(2),
+        "After await",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     });
 
     await task;
@@ -337,7 +389,7 @@ public class MockLoggerTests {
     Assert.Equal(2, logEntries.Count);
     Assert.NotNull(logEntries[0].ScopeId);
     Assert.NotNull(logEntries[1].ScopeId);
-    Assert.Equal(logEntries[0].ScopeId, logEntries[1].ScopeId); // Same scope for both logs
+    Assert.Equal(logEntries[0].ScopeId, logEntries[1].ScopeId);
   }
 
   [Fact]
@@ -355,8 +407,12 @@ public class MockLoggerTests {
       var threadId = i;
       tasks[i] = Task.Run(() => {
         for (var j = 0; j < logsPerThread; j++) {
-          logger.Log(LogLevel.Information, new EventId(j),
-            $"Thread {threadId} - Log {j}", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+          logger.Log(
+            LogLevel.Information,
+            new EventId(j),
+            $"Thread {threadId} - Log {j}",
+            null,
+            (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
         }
       });
     }
@@ -383,13 +439,21 @@ public class MockLoggerTests {
       var threadId = i;
       tasks[i] = Task.Run(() => {
         using var scope = logger.BeginScope($"Thread {threadId} scope");
-        logger.Log(LogLevel.Information, new EventId(1),
-          $"Thread {threadId} message", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+        logger.Log(
+          LogLevel.Information,
+          new EventId(1),
+          $"Thread {threadId} message",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
-        Thread.Sleep(10); // Increase contention
+        Thread.Sleep(10);
 
-        logger.Log(LogLevel.Warning, new EventId(2),
-          $"Thread {threadId} warning", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+        logger.Log(
+          LogLevel.Warning,
+          new EventId(2),
+          $"Thread {threadId} warning",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
       });
     }
 
@@ -403,7 +467,7 @@ public class MockLoggerTests {
 
     Assert.Equal(threadCount, scopeStarts.Count);
     Assert.Equal(threadCount, scopeEnds.Count);
-    Assert.Equal(threadCount * 2, logs.Count); // 2 logs per thread
+    Assert.Equal(threadCount * 2, logs.Count);
 
     // Verify each scope has unique ID
     var scopeIds = scopeStarts.Select(e => e.ScopeId!.Value).ToList();
@@ -441,23 +505,59 @@ public class MockLoggerTests {
 
     // Execute complex nested scenario
     using (var level1 = logger.BeginScope(new Dictionary<string, object> { { "Level", 1 } })) {
-      logger.Log(LogLevel.Information, new EventId(1), "Level 1 log", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId(1),
+        "Level 1 log",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
-      using (var level2a = logger.BeginScope(new Dictionary<string, object> { { "Level", 2 }, { "Branch", "A" } })) {
-        logger.Log(LogLevel.Debug, new EventId(2), "Level 2A log", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      using (var level2a = logger.BeginScope(new Dictionary<string, object> {
+        { "Level", 2 },
+        { "Branch", "A" }
+      })) {
+        logger.Log(
+          LogLevel.Debug,
+          new EventId(2),
+          "Level 2A log",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
         using (var level3 = logger.BeginScope(new Dictionary<string, object> { { "Level", 3 } })) {
-          logger.Log(LogLevel.Warning, new EventId(3), "Level 3 log", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+          logger.Log(
+            LogLevel.Warning,
+            new EventId(3),
+            "Level 3 log",
+            null,
+            (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
         }
 
-        logger.Log(LogLevel.Error, new EventId(4), "Level 2A log after 3", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+        logger.Log(
+          LogLevel.Error,
+          new EventId(4),
+          "Level 2A log after 3",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
       }
 
-      using (var level2b = logger.BeginScope(new Dictionary<string, object> { { "Level", 2 }, { "Branch", "B" } })) {
-        logger.Log(LogLevel.Critical, new EventId(5), "Level 2B log", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      using (var level2b = logger.BeginScope(new Dictionary<string, object> {
+        { "Level", 2 },
+        { "Branch", "B" }
+      })) {
+        logger.Log(
+          LogLevel.Critical,
+          new EventId(5),
+          "Level 2B log",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
       }
 
-      logger.Log(LogLevel.Trace, new EventId(6), "Level 1 final log", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Trace,
+        new EventId(6),
+        "Level 1 final log",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     // Verify complex hierarchy
@@ -475,9 +575,9 @@ public class MockLoggerTests {
     var level1Id = scopeStarts[0].ScopeId!.Value;
     var level2aId = scopeStarts[1].ScopeId!.Value;
 
-    Assert.Null(scopeStarts[0].ParentScopeId); // Level 1 has no parent
-    Assert.Equal(level1Id, scopeStarts[1].ParentScopeId); // Level 2A parent is Level 1
-    Assert.Equal(level2aId, scopeStarts[2].ParentScopeId); // Level 3 parent is Level 2A
-    Assert.Equal(level1Id, scopeStarts[3].ParentScopeId); // Level 2B parent is Level 1
+    Assert.Null(scopeStarts[0].ParentScopeId);
+    Assert.Equal(level1Id, scopeStarts[1].ParentScopeId);
+    Assert.Equal(level2aId, scopeStarts[2].ParentScopeId);
+    Assert.Equal(level1Id, scopeStarts[3].ParentScopeId);
   }
 }

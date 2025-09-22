@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
-
 using NSI.Core.Mediator.Abstractions;
 using NSI.Core.Mediator.Decorators;
 using NSI.Core.Results;
@@ -111,8 +110,12 @@ public class LoggingDecoratorTests {
     // Verify logging was called
     var logEntries = _LogEntryStore.GetAll();
     Assert.NotEmpty(logEntries);
-    Assert.NotEmpty(logEntries.WithMessageContains("Starting request processing: TestRequest").WithLogLevel(LogLevel.Information));
-    Assert.NotEmpty(logEntries.WithMessageContains("Request TestRequest completed successfully").WithLogLevel(LogLevel.Information));
+    Assert.NotEmpty(logEntries
+      .WithMessageContains("Starting request processing: TestRequest")
+      .WithLogLevel(LogLevel.Information));
+    Assert.NotEmpty(logEntries
+      .WithMessageContains("Request TestRequest completed successfully")
+      .WithLogLevel(LogLevel.Information));
   }
 
   [Fact]
@@ -124,12 +127,16 @@ public class LoggingDecoratorTests {
     var mockContinuation = Substitute.For<RequestHandlerFunction<TestResponse>>();
 
     mockContinuation.Invoke().Returns(Result.Success(expectedResponse));
-    var mockLogger = new MockLogger<LoggingDecorator<CorrelatedTestRequest, TestResponse>>(_LogEntryStore);
+    var mockLogger = new MockLogger<LoggingDecorator<CorrelatedTestRequest, TestResponse>>(
+      _LogEntryStore);
     // Create decorator for correlated request
     var correlatedDecorator = new LoggingDecorator<CorrelatedTestRequest, TestResponse>(mockLogger);
 
     // Act
-    var result = await correlatedDecorator.HandleAsync(request, mockContinuation, CancellationToken.None);
+    var result = await correlatedDecorator.HandleAsync(
+      request,
+      mockContinuation,
+      CancellationToken.None);
 
     // Assert
     Assert.True(result.IsSuccess);
@@ -137,7 +144,9 @@ public class LoggingDecoratorTests {
     // Verify correlation ID is logged
     var logEntries = _LogEntryStore.GetAll();
     Assert.NotEmpty(logEntries);
-    Assert.NotEmpty(logEntries.WithMessageContains(correlationId).WithLogLevel(LogLevel.Information));
+    Assert.NotEmpty(logEntries
+      .WithMessageContains(correlationId)
+      .WithLogLevel(LogLevel.Information));
   }
 
   #endregion
@@ -163,7 +172,10 @@ public class LoggingDecoratorTests {
     // Verify failure logging
     var logEntries = _LogEntryStore.GetAll();
     Assert.NotEmpty(logEntries);
-    Assert.NotEmpty(logEntries.WithMessageContains("Request TestRequest failed").WithMessageContains("BusinessRule").WithLogLevel(LogLevel.Warning));
+    Assert.NotEmpty(logEntries
+      .WithMessageContains("Request TestRequest failed")
+      .WithMessageContains("BusinessRule")
+      .WithLogLevel(LogLevel.Warning));
   }
 
   [Fact]
@@ -184,7 +196,11 @@ public class LoggingDecoratorTests {
     // Verify error logging
     var logEntries = _LogEntryStore.GetAll();
     Assert.NotEmpty(logEntries);
-    var logEntry = logEntries.WithMessageContains("Request TestRequest threw an exception").WithLogLevel(LogLevel.Error).WithException().FirstOrDefault();
+    var logEntry = logEntries
+      .WithMessageContains("Request TestRequest threw an exception")
+      .WithLogLevel(LogLevel.Error)
+      .WithException()
+      .FirstOrDefault();
     Assert.NotNull(logEntry);
     Assert.Equal(expectedException, logEntry.Exception);
   }
@@ -204,7 +220,9 @@ public class LoggingDecoratorTests {
     // Verify cancellation logging
     var logEntries = _LogEntryStore.GetAll();
     Assert.NotEmpty(logEntries);
-    Assert.NotEmpty(logEntries.WithMessageContains("Request TestRequest was cancelled").WithLogLevel(LogLevel.Warning));
+    Assert.NotEmpty(logEntries
+      .WithMessageContains("Request TestRequest was cancelled")
+      .WithLogLevel(LogLevel.Warning));
   }
 
   #endregion
@@ -217,7 +235,6 @@ public class LoggingDecoratorTests {
     var request = new TestRequest("test-data");
     var expectedResponse = new TestResponse("processed-data");
     var mockContinuation = Substitute.For<RequestHandlerFunction<TestResponse>>();
-
 
     async Task<Result<TestResponse>> MockContinuationTask() {
       await Task.Delay(100); // Simulate some processing time
@@ -235,7 +252,10 @@ public class LoggingDecoratorTests {
     // Verify timing information is logged
     var logEntries = _LogEntryStore.GetAll();
     Assert.NotEmpty(logEntries);
-    Assert.NotEmpty(logEntries.WithMessageContains("completed successfully").WithMessageContains("ms").WithLogLevel(LogLevel.Information));
+    Assert.NotEmpty(logEntries
+      .WithMessageContains("completed successfully")
+      .WithMessageContains("ms")
+      .WithLogLevel(LogLevel.Information));
   }
 
   #endregion

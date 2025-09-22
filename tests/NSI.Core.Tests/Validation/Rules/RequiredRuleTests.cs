@@ -84,4 +84,30 @@ public sealed class RequiredRuleTests {
 
     Assert.Empty(errors);
   }
+
+  [Fact]
+  public void Validate_WithNullObjectValue_ShouldReturnError() {
+    var rule = new RequiredRule<TestModel>(m => m.ObjectValue);
+    var model = new TestModel { ObjectValue = null };
+    var context = ValidationContext.Empty();
+
+    var errors = rule.Validate(model, context).ToList();
+
+    Assert.Single(errors);
+    Assert.Equal("REQUIRED", errors[0].ErrorCode);
+    Assert.Equal("ObjectValue is required.", errors[0].ErrorMessage);
+    Assert.Equal("ObjectValue", errors[0].PropertyName);
+    Assert.Equal("non-empty value", errors[0].ExpectedValue);
+  }
+
+  [Fact]
+  public void Validate_WithNonNullObjectValue_ShouldReturnNoErrors() {
+    var rule = new RequiredRule<TestModel>(m => m.ObjectValue);
+    var model = new TestModel { ObjectValue = new object() };
+    var context = ValidationContext.Empty();
+
+    var errors = rule.Validate(model, context);
+
+    Assert.Empty(errors);
+  }
 }

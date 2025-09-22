@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -16,13 +13,16 @@ using Xunit.Abstractions;
 namespace NSI.Specifications.Tests.Translation;
 
 /// <summary>
-/// EF Core translation tests ensuring specifications compose into translatable expression trees (no client evaluation).
+/// EF Core translation tests ensuring specifications compose into translatable expression
+/// trees (no client evaluation).
 /// </summary>
 public sealed class SpecificationTranslationTests: IDisposable {
-  private static readonly string[] ExpectedAliceCarol = ["Alice", "Carol"]; // reuse across tests
-  private static readonly string[] ExpectedAliceBob = ["Alice", "Bob"]; // for OR + ordering test
+  private static readonly string[] ExpectedAliceCarol = ["Alice", "Carol"];
+  private static readonly string[] ExpectedAliceBob = ["Alice", "Bob"];
+
   private readonly TestDbContext _Ctx;
   private readonly SqliteConnection _Conn;
+  private readonly ITestOutputHelper _Output;
 
   private sealed class Author {
     public int Id { get; set; }
@@ -30,24 +30,29 @@ public sealed class SpecificationTranslationTests: IDisposable {
     public DateTime CreatedAt { get; set; }
     public List<Book> Books { get; set; } = [];
   }
+
   private sealed class Book {
     public int Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public int AuthorId { get; set; }
     public Author Author { get; set; } = null!;
   }
+
   private sealed class TestDbContext(DbContextOptions<TestDbContext> options): DbContext(options) {
     public DbSet<Author> Authors => Set<Author>();
     public DbSet<Book> Books => Set<Book>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
       modelBuilder.Entity<Author>().HasKey(a => a.Id);
       modelBuilder.Entity<Book>().HasKey(b => b.Id);
-      modelBuilder.Entity<Author>().HasMany(a => a.Books).WithOne(b => b.Author).HasForeignKey(b => b.AuthorId);
+      modelBuilder
+        .Entity<Author>()
+        .HasMany(a => a.Books)
+        .WithOne(b => b.Author)
+        .HasForeignKey(b => b.AuthorId);
       base.OnModelCreating(modelBuilder);
     }
   }
-
-  private readonly ITestOutputHelper _Output;
 
   public SpecificationTranslationTests(ITestOutputHelper output) {
     _Output = output;
@@ -62,27 +67,49 @@ public sealed class SpecificationTranslationTests: IDisposable {
   }
 
   private void Seed() {
-    var a1 = new Author { Id = 1, Name = "Alice", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) };
-    var a2 = new Author { Id = 2, Name = "Bob", CreatedAt = new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc) };
-    var a3 = new Author { Id = 3, Name = "Carol", CreatedAt = new DateTime(2024, 2, 1, 0, 0, 0, DateTimeKind.Utc) };
+    var a1 = new Author {
+      Id = 1,
+      Name = "Alice",
+      CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+    };
+    var a2 = new Author {
+      Id = 2,
+      Name = "Bob",
+      CreatedAt = new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc)
+    };
+    var a3 = new Author {
+      Id = 3,
+      Name = "Carol",
+      CreatedAt = new DateTime(2024, 2, 1, 0, 0, 0, DateTimeKind.Utc)
+    };
     _Ctx.Authors.AddRange(a1, a2, a3);
     _Ctx.Books.AddRange(
-        new Book { Id = 10, Title = "Alpha", Author = a1, AuthorId = a1.Id },
-        new Book { Id = 11, Title = "Beta", Author = a1, AuthorId = a1.Id },
-        new Book { Id = 12, Title = "Gamma", Author = a2, AuthorId = a2.Id }
+      new Book { Id = 10, Title = "Alpha", Author = a1, AuthorId = a1.Id },
+      new Book { Id = 11, Title = "Beta", Author = a1, AuthorId = a1.Id },
+      new Book { Id = 12, Title = "Gamma", Author = a2, AuthorId = a2.Id }
     );
     _Ctx.SaveChanges();
   }
 
   [Fact]
   public void Filter_And_Between_OrderBy_Translates() {
-    var nameContains = new ContainsSpecification<Author>(a => a.Name, "a", ignoreCase: true);
-    var createdBetween = new BetweenSpecification<Author, DateTime>(a => a.CreatedAt,
-        new DateTime(2023, 12, 31, 0, 0, 0, DateTimeKind.Utc),
-        new DateTime(2024, 12, 31, 0, 0, 0, DateTimeKind.Utc));
+    var nameContains = new ContainsSpecification<Author>(
+      a => a.Name,
+      "a",
+      ignoreCase: true
+    );
+    var createdBetween = new BetweenSpecification<Author, DateTime>(
+      a => a.CreatedAt,
+      new DateTime(2023, 12, 31, 0, 0, 0, DateTimeKind.Utc),
+      new DateTime(2024, 12, 31, 0, 0, 0, DateTimeKind.Utc)
+    );
     var combined = nameContains.And(createdBetween);
-    var order = SortSpecification<Author>.FromSingle(a => a.CreatedAt, SortDirection.Desc).Then(a => a.Name);
-    var projection = new ProjectionSpecification<Author, string>(a => a.Name + ":" + a.CreatedAt.Year);
+    var order = SortSpecification<Author>
+      .FromSingle(a => a.CreatedAt, SortDirection.Desc)
+      .Then(a => a.Name);
+    var projection = new ProjectionSpecification<Author, string>(
+      a => a.Name + ":" + a.CreatedAt.Year
+    );
 
     var query = _Ctx.Authors
       .Where(combined)
@@ -99,17 +126,24 @@ public sealed class SpecificationTranslationTests: IDisposable {
 
   [Fact]
   public void Include_Projection_NoClientEval() {
-    var include = new IncludeSpecification<Author>(chains: [IncludeChains.For<Author>((Expression<Func<Author, List<Book>>>)(a => a.Books))]);
+    var include = new IncludeSpecification<Author>(
+      chains: [
+        IncludeChains.For<Author>(
+          (Expression<Func<Author, List<Book>>>)(a => a.Books)
+        )
+      ]
+    );
     var proj = new ProjectionSpecification<Author, int>(a => a.Books.Count);
     var query = _Ctx.Authors.Include(include).Select(proj);
     var sql = query.ToQueryString();
+
     Assert.Contains("SELECT", sql, StringComparison.OrdinalIgnoreCase);
-    // SQLite may translate Include + projection(count) via a correlated subquery instead of a LEFT JOIN.
-    // Accept either pattern: a LEFT JOIN or a correlated subquery referencing Books.
-    // For SQLite, Include + projection of collection Count often becomes correlated scalar subquery WITHOUT explicit JOIN.
-    // Minimal invariant: a nested SELECT COUNT referencing Books table.
+    // SQLite may translate Include + projection(count) via a correlated subquery instead of a LEFT
+    // JOIN. Accept either pattern: a LEFT JOIN or a correlated subquery referencing Books.
+    // For SQLite, Include + projection of collection Count often becomes correlated scalar
+    // subquery WITHOUT explicit JOIN. Minimal invariant: a nested SELECT COUNT referencing Books
+    // table.
     _Output.WriteLine("Generated SQL:\n{0}", sql);
-    // In SQLite the include + projection of child collection count appears as a correlated scalar subquery.
     // Minimal invariants we enforce:
     // 1. A nested SELECT COUNT(*) subquery.
     // 2. The Books table name appears.
@@ -133,19 +167,31 @@ public sealed class SpecificationTranslationTests: IDisposable {
 
   [Fact]
   public void Not_Specification_Composes() {
-    var startsWithA = new StartsWithSpecification<Author>(a => a.Name, "A", ignoreCase: true);
+    var startsWithA = new StartsWithSpecification<Author>(
+      a => a.Name,
+      "A",
+      ignoreCase: true
+    );
     var notSpec = startsWithA.Not();
     var q = _Ctx.Authors.Where(notSpec);
     var sql = q.ToQueryString();
-    Assert.DoesNotContain("A\" =", sql, StringComparison.Ordinal); // crude
+    Assert.DoesNotContain("A\" =", sql, StringComparison.Ordinal);
     var list = q.ToList();
     Assert.Contains(list, a => a.Name == "Bob");
   }
 
   [Fact]
   public void Or_Composition_Translates() {
-    var startsWithA = new StartsWithSpecification<Author>(a => a.Name, "A", ignoreCase: true);
-    var startsWithC = new StartsWithSpecification<Author>(a => a.Name, "C", ignoreCase: true);
+    var startsWithA = new StartsWithSpecification<Author>(
+      a => a.Name,
+      "A",
+      ignoreCase: true
+    );
+    var startsWithC = new StartsWithSpecification<Author>(
+      a => a.Name,
+      "C",
+      ignoreCase: true
+    );
     var orSpec = startsWithA.Or(startsWithC);
     var q = _Ctx.Authors.Where(orSpec);
     var sql = q.ToQueryString();
@@ -156,9 +202,20 @@ public sealed class SpecificationTranslationTests: IDisposable {
 
   [Fact]
   public void Nested_Not_Or_And_PreservesLogic() {
-    var containsA = new ContainsSpecification<Author>(a => a.Name, "a", ignoreCase: true); // Alice, Carol
-    var startsWithB = new StartsWithSpecification<Author>(a => a.Name, "B", ignoreCase: true); // Bob
-    var complex = containsA.Or(startsWithB).And(containsA.Not()); // (A or B) and not A => B only
+    var containsA = new ContainsSpecification<Author>(
+      a => a.Name,
+      "a",
+      ignoreCase: true
+    ); // Alice, Carol
+    var startsWithB = new StartsWithSpecification<Author>(
+      a => a.Name,
+      "B",
+      ignoreCase: true
+    ); // Bob
+    var complex = containsA
+      .Or(startsWithB)
+      .And(containsA.Not()); // (A or B) and not A => B only
+
     var q = _Ctx.Authors.Where(complex);
     var sql = q.ToQueryString();
     Assert.Contains("AND", sql, StringComparison.OrdinalIgnoreCase);
@@ -169,10 +226,20 @@ public sealed class SpecificationTranslationTests: IDisposable {
 
   [Fact]
   public void Or_OrderBy_Projection_TranslatesOrdered() {
-    var startsWithA = new StartsWithSpecification<Author>(a => a.Name, "A", ignoreCase: true);
-    var startsWithB = new StartsWithSpecification<Author>(a => a.Name, "B", ignoreCase: true);
+    var startsWithA = new StartsWithSpecification<Author>(
+      a => a.Name,
+      "A",
+      ignoreCase: true
+    );
+    var startsWithB = new StartsWithSpecification<Author>(
+      a => a.Name,
+      "B",
+      ignoreCase: true
+    );
     var orSpec = startsWithA.Or(startsWithB);
-    var sort = SortSpecification<Author>.FromSingle(a => a.Name, SortDirection.Asc).Then(a => a.Id, SortDirection.Desc);
+    var sort = SortSpecification<Author>
+      .FromSingle(a => a.Name, SortDirection.Asc)
+      .Then(a => a.Id, SortDirection.Desc);
     var proj = new ProjectionSpecification<Author, string>(a => a.Name);
 
     var query = _Ctx.Authors.Where(orSpec).OrderBy(sort).Select(proj);

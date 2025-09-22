@@ -1,6 +1,7 @@
 using NSI.Core.Results;
 
 namespace NSI.Core.Mediator.Abstractions;
+
 /// <summary>
 /// Defines the central dispatcher for application requests and notifications.
 /// </summary>
@@ -27,7 +28,7 @@ namespace NSI.Core.Mediator.Abstractions;
 /// <code>
 /// // In a controller
 /// [ApiController]
-/// public class UsersController : ControllerBase {
+/// public class UsersController: ControllerBase {
 ///   private readonly IMediator _mediator;
 ///   
 ///   public UsersController(IMediator mediator) {

@@ -7,7 +7,6 @@ using NSI.Core.Mediator.Decorators;
 using NSI.Core.Results;
 using NSI.Core.Validation;
 using NSI.Core.Validation.Abstractions;
-
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
@@ -47,19 +46,28 @@ public class ValidationDecoratorTests {
   /// <summary>
   /// Test request for validation testing.
   /// </summary>
-  [SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Need to be public for NSubstitute.")]
+  [SuppressMessage(
+    "Maintainability",
+    "CA1515:Consider making public types internal",
+    Justification = "Need to be public for NSubstitute.")]
   public record TestRequest(string Name, string Email): IQuery<TestResponse>;
 
   /// <summary>
   /// Test response for validation testing.
   /// </summary>
-  [SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Need to be public for NSubstitute.")]
+  [SuppressMessage(
+    "Maintainability",
+    "CA1515:Consider making public types internal",
+    Justification = "Need to be public for NSubstitute.")]
   public record TestResponse(string ProcessedData);
 
   /// <summary>
   /// Invalid test request for validation failure scenarios.
   /// </summary>
-  [SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Need to be public for NSubstitute.")]
+  [SuppressMessage(
+    "Maintainability",
+    "CA1515:Consider making public types internal",
+    Justification = "Need to be public for NSubstitute.")]
   public record InvalidTestRequest(string? Name, string? Email): IQuery<TestResponse>;
 
   #endregion
@@ -132,7 +140,8 @@ public class ValidationDecoratorTests {
     var expectedResponse = new TestResponse("processed");
     var mockContinuation = Substitute.For<RequestHandlerFunction<TestResponse>>();
 
-    _MockServiceProvider.GetService<IValidator<TestRequest>>().Returns((IValidator<TestRequest>?)null);
+    _MockServiceProvider.GetService<IValidator<TestRequest>>()
+      .Returns((IValidator<TestRequest>?)null);
     mockContinuation.Invoke().Returns(Result.Success(expectedResponse));
 
     // Act
@@ -185,7 +194,7 @@ public class ValidationDecoratorTests {
 
     mockValidator.ValidateAsync(
         Arg.Any<TestRequest>(),
-        Arg.Do<IValidationContext>(ctx =>             // Verify that ValidationContext is created with our service provider
+        Arg.Do<IValidationContext>(ctx =>
           Assert.Equal(_MockServiceProvider, ctx.ServiceProvider)),
         Arg.Any<CancellationToken>())
       .Returns(ValidationResult.Success);
@@ -220,7 +229,8 @@ public class ValidationDecoratorTests {
 
     // Assert
     Assert.True(result.IsSuccess);
-    await mockValidator.Received(1).ValidateAsync(request, Arg.Any<IValidationContext>(), cancellationToken);
+    await mockValidator.Received(1)
+      .ValidateAsync(request, Arg.Any<IValidationContext>(), cancellationToken);
   }
 
   #endregion

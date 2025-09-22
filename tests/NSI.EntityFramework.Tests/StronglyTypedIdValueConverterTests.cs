@@ -3,11 +3,25 @@ using NSI.Domains.StrongIdentifier;
 using NSI.EntityFramework.Converters;
 
 namespace NSI.EntityFramework.Tests;
+/// <summary>
+/// Tests for <see cref="StronglyTypedIdValueConverter{TId, TUnderlying}"/>
+/// ensuring provider conversions preserve values across types.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Covers Guid, int, string, decimal, DateTime and custom value types. Validates
+/// ConvertToProvider/ConvertFromProvider round-trips, null handling, extremes,
+/// and equality semantics.
+/// </para>
+/// </remarks>
 public class StronglyTypedIdValueConverterTests {
   [Fact]
   public void Given_GuidBasedId_When_ConvertingToAndFromProvider_Then_ValueIsPreserved() {
     // Given
-    var guid = Guid.Parse("00000000-0000-0000-0000-000000000000", CultureInfo.InvariantCulture);
+    var guid = Guid.Parse(
+      "00000000-0000-0000-0000-000000000000",
+      CultureInfo.InvariantCulture
+    );
     var guidId = new GuidId(guid);
     var guidConverter = new StronglyTypedIdValueConverter<GuidId, Guid>();
 
@@ -51,6 +65,7 @@ public class StronglyTypedIdValueConverterTests {
     Assert.Equal(stringId.Value, modelValue.Value);
     Assert.IsType<string>(dbValue);
   }
+
   [Fact]
   public void Given_NullId_When_ConvertingToProvider_Then_ThrowsNullReferenceException() {
     // Given
@@ -58,9 +73,11 @@ public class StronglyTypedIdValueConverterTests {
     var converter = new StronglyTypedIdValueConverter<GuidId, Guid>();
 
     // When/Then
-    Assert.Throws<NullReferenceException>(() =>
-        converter.ConvertToProviderExpression.Compile().Invoke(nullId!));
+    Assert.Throws<NullReferenceException>(
+      () => converter.ConvertToProviderExpression.Compile().Invoke(nullId!)
+    );
   }
+
   [Fact]
   public void Given_IdWithDefaultValue_When_ConvertingToAndFromProvider_Then_ValueIsPreserved() {
     // Given
@@ -111,6 +128,7 @@ public class StronglyTypedIdValueConverterTests {
     Assert.Equal(dateTime.Kind, dbValue.Kind);
     Assert.Equal(dateTime.Ticks, dbValue.Ticks);
   }
+
   [Fact]
   public void Given_IdWithMaxValue_When_ConvertingToAndFromProvider_Then_ValueIsPreserved() {
     // Given
@@ -126,6 +144,7 @@ public class StronglyTypedIdValueConverterTests {
     Assert.Equal(int.MaxValue, dbValue);
     Assert.Equal(maxIntId.Value, modelValue.Value);
   }
+
   [Fact]
   public void Given_IdWithNegativeValue_When_ConvertingToAndFromProvider_Then_ValueIsPreserved() {
     // Given
@@ -141,6 +160,7 @@ public class StronglyTypedIdValueConverterTests {
     Assert.Equal(-42, dbValue);
     Assert.Equal(negativeIntId.Value, modelValue.Value);
   }
+
   [Fact]
   public void Given_IdWithEmptyString_When_ConvertingToAndFromProvider_Then_ValueIsPreserved() {
     // Given
@@ -156,6 +176,7 @@ public class StronglyTypedIdValueConverterTests {
     Assert.Equal(string.Empty, dbValue);
     Assert.Equal(emptyStringId.Value, modelValue.Value);
   }
+
   [Fact]
   public void Given_IdWithLongString_When_ConvertingToAndFromProvider_Then_ValueIsPreserved() {
     // Given
@@ -171,10 +192,14 @@ public class StronglyTypedIdValueConverterTests {
     Assert.Equal(10000, dbValue.Length);
     Assert.Equal(longStringId.Value, modelValue.Value);
   }
+
   [Fact]
   public void Given_TwoDifferentIdsWithSameValue_When_ConvertingToProvider_Then_DbValuesAreEqual() {
     // Given
-    var guid = Guid.Parse("00000000-0000-0000-0000-000000000000", CultureInfo.InvariantCulture);
+    var guid = Guid.Parse(
+      "00000000-0000-0000-0000-000000000000",
+      CultureInfo.InvariantCulture
+    );
     var id1 = new GuidId(guid);
     var id2 = new GuidId(guid);
     var converter = new StronglyTypedIdValueConverter<GuidId, Guid>();
@@ -205,8 +230,8 @@ public class StronglyTypedIdValueConverterTests {
     Assert.Equal(123.456m, dbValue);
     Assert.Equal(decimalId.Value, modelValue.Value);
   }
-
 }
+
 internal sealed record DecimalId(decimal Value): StronglyTypedId<DecimalId, decimal>(Value);
 
 internal sealed record DateId(DateTime Value): StronglyTypedId<DateId, DateTime>(Value);
@@ -216,7 +241,7 @@ internal readonly struct CustomValueType(int value): IEquatable<CustomValueType>
   public int Value { get; } = value;
 
   public override readonly bool Equals(object? obj) =>
-      obj is CustomValueType other && other.Value == Value;
+    obj is CustomValueType other && other.Value == Value;
 
   public readonly bool Equals(CustomValueType other) => Value == other.Value;
 
@@ -224,7 +249,7 @@ internal readonly struct CustomValueType(int value): IEquatable<CustomValueType>
 }
 
 internal sealed record CustomTypeId(CustomValueType Value)
-    : StronglyTypedId<CustomTypeId, CustomValueType>(Value);
+  : StronglyTypedId<CustomTypeId, CustomValueType>(Value);
 
 // Common ID types for testing
 internal sealed record IntegerId(int Value): StronglyTypedId<IntegerId, int>(Value);

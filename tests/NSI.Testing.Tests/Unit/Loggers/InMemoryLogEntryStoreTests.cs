@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using NSI.Testing.Loggers;
 using NSI.Testing.Tests.TestUtilities;
@@ -16,6 +15,7 @@ namespace NSI.Testing.Tests.Unit.Loggers;
 /// </remarks>
 public class InMemoryLogEntryStoreTests {
   private readonly Lock _Lock = new();
+
   [Fact]
   public void Add_WithValidEntry_ShouldStoreEntry() {
     // Setup store and test entry
@@ -316,7 +316,8 @@ public class InMemoryLogEntryStoreTests {
     Assert.Equal(entryCount, entries.Count);
 
     // Performance should be reasonable (< 1 second for 10k entries)
-    Assert.True(stopwatch.ElapsedMilliseconds < 1000,
-      $"Adding {entryCount} entries took {stopwatch.ElapsedMilliseconds}ms, expected < 1000ms");
+    Assert.True(
+      stopwatch.ElapsedMilliseconds < 1000,
+      "Adding entries took too long (expected < 1000ms)");
   }
 }

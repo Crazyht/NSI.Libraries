@@ -1,12 +1,51 @@
-using System;
 using System.Linq.Expressions;
 using NSI.Specifications.Core;
 
 namespace NSI.Specifications.Filtering.Comparison;
 
 /// <summary>
-/// Filters entities whose selected value lies between provided bounds.
+/// Specification filtering entities whose selected comparable value lies between two bounds with
+/// configurable inclusivity for lower and upper edges.
 /// </summary>
+/// <typeparam name="T">Entity type.</typeparam>
+/// <typeparam name="TKey">Comparable value type.</typeparam>
+/// <remarks>
+/// <para>Semantics:
+/// <list type="bullet">
+///   <item><description>Evaluates a single comparable member selected by <paramref name="selector"/>.</description></item>
+///   <item><description>Lower / upper bounds provided via constructor and treated as constants.</description></item>
+///   <item><description>Edge inclusion governed by <paramref name="includeLower"/> / <paramref name="includeUpper"/> flags.</description></item>
+///   <item><description>Supports multi-level navigation paths (null-safe guarded externally by <see cref="GuardBuilder"/>).</description></item>
+/// </list>
+/// </para>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Prefer explicit inclusivity flags to express domain intent (e.g. date ranges).</description></item>
+///   <item><description>For open-ended ranges compose with separate GreaterThan / LessThan specifications.</description></item>
+///   <item><description>Cache the instance when reused often (immutable design).</description></item>
+///   <item><description>Ensure <typeparamref name="TKey"/> implements <see cref="IComparable{TKey}"/> efficiently (avoid boxing heavy structs).</description></item>
+/// </list>
+/// </para>
+/// <para>Performance:
+/// <list type="bullet">
+///   <item><description>Creates two comparison expressions and one logical AND (O(1) construction).</description></item>
+///   <item><description>Bounds captured as constants; no closures or allocations per evaluation.</description></item>
+///   <item><description>Null-guard composition only applied when selector path is multi-level.</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: Immutable after construction; safe for concurrent usage.</para>
+/// </remarks>
+/// <example>
+/// <code>
+/// // Inclusive date range (first and last day included)
+/// var dateRange = new BetweenSpecification&lt;Order, DateTime&gt;(o => o.OrderDate, startDate, endDate);
+///
+/// // Numeric exclusive upper bound (e.g. [min, max)) commonly used in pagination windows
+/// var window = new BetweenSpecification&lt;Record, int&gt;(r => r.Offset, start, end, includeLower: true, includeUpper: false);
+///
+/// var filtered = orders.AsQueryable().Where(dateRange.ToExpression());
+/// </code>
+/// </example>
 public sealed class BetweenSpecification<T, TKey>(
   Expression<Func<T, TKey>> selector,
   TKey lower,
@@ -20,7 +59,10 @@ public sealed class BetweenSpecification<T, TKey>(
   private readonly bool _IncludeLower = includeLower;
   private readonly bool _IncludeUpper = includeUpper;
 
-  /// <inheritdoc />
+  /// <summary>
+  /// Builds the predicate enforcing range constraints with configured edge inclusivity.
+  /// </summary>
+  /// <returns>Expression evaluating to <see langword="true"/> when value lies within the configured range.</returns>
   public override Expression<Func<T, bool>> ToExpression() {
     var parameter = _Selector.Parameters[0];
     var body = _Selector.Body;

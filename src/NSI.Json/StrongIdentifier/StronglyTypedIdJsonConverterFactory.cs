@@ -4,96 +4,82 @@ using NSI.Domains.StrongIdentifier;
 
 namespace NSI.Json.StrongIdentifier;
 /// <summary>
-/// JSON converter factory for serializing and deserializing strongly-typed IDs.
+/// JSON converter factory enabling serialization of strongly-typed identifiers
+/// (<see cref="StronglyTypedId{TId, TUnderlying}"/>) via System.Text.Json.
 /// </summary>
 /// <remarks>
-/// <para>
-/// This factory enables System.Text.Json to handle strongly-typed IDs by detecting types that 
-/// inherit from <see cref="StronglyTypedId{TId, TUnderlying}"/> and dynamically creating 
-/// appropriate converters for them.
+/// <para>Semantics:
+/// <list type="bullet">
+///   <item><description>Detects types deriving (directly or indirectly) from <see cref="StronglyTypedId{TId, TUnderlying}"/>.</description></item>
+///   <item><description>Creates closed generic <see cref="StronglyTypedIdJsonConverter{TId, TUnderlying}"/> instances.</description></item>
+///   <item><description>System.Text.Json caches produced converters per target type (factory is stateless).</description></item>
+/// </list>
 /// </para>
-/// <para>
-/// Register this factory with JsonSerializerOptions to enable automatic JSON serialization
-/// of strongly-typed IDs:
-/// <code>
-/// var options = new JsonSerializerOptions { 
-///     Converters = { new StronglyTypedIdJsonConverterFactory() } 
-/// };
-/// </code>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Register once: <c>options.Converters.Add(new StronglyTypedIdJsonConverterFactory())</c>.</description></item>
+///   <item><description>Do not manually register individual strongly-typed id converters.</description></item>
+///   <item><description>Keep identifier constructors stable for deterministic deserialization.</description></item>
+/// </list>
 /// </para>
-/// <para>
-/// When serialized, IDs will be represented as strings in the format "TypeName-Value",
-/// which maintains type safety during serialization/deserialization and improves readability.
+/// <para>Performance:
+/// <list type="bullet">
+///   <item><description>Reflection limited to inheritance walk + generic argument extraction per id type.</description></item>
+///   <item><description>Serializer-level caching prevents repeated factory invocation for same CLR type.</description></item>
+///   <item><description>No additional allocations beyond the converter instance itself.</description></item>
+/// </list>
 /// </para>
+/// <para>Thread-safety: Factory is stateless and safe for concurrent use.</para>
+/// <para>Error handling: Non StronglyTypedId types passed to <see cref="CreateConverter"/> raise <see cref="NotSupportedException"/>.</para>
 /// </remarks>
 /// <example>
-/// Serializing and deserializing an entity with strongly-typed ID:
 /// <code>
-/// // Setup serializer options
-/// var options = new JsonSerializerOptions { 
-///     Converters = { new StronglyTypedIdJsonConverterFactory() } 
+/// var options = new JsonSerializerOptions {
+///   Converters = { new StronglyTypedIdJsonConverterFactory() }
 /// };
-/// 
-/// // Serialize entity with strongly-typed ID
-/// var user = new User { Id = new UserId(Guid.NewGuid()) };
-/// string json = JsonSerializer.Serialize(user, options);
-/// // Result: {"Id":"UserId-01234567-89ab-cdef-0123-456789abcdef"}
-/// 
-/// // Deserialize back to strongly-typed ID
-/// var deserialized = JsonSerializer.Deserialize&lt;User&gt;(json, options);
+/// var user = new User { Id = UserId.New() };
+/// var json = JsonSerializer.Serialize(user, options);
+/// var roundTrip = JsonSerializer.Deserialize&lt;User&gt;(json, options);
 /// </code>
 /// </example>
 public class StronglyTypedIdJsonConverterFactory: JsonConverterFactory {
   /// <summary>
-  /// Determines whether the converter can convert the specified type.
+  /// Determines whether the provided type can be handled (derives from strongly-typed id base).
   /// </summary>
-  /// <param name="typeToConvert">The type to check if this converter can handle.</param>
-  /// <returns>
-  /// <see langword="true"/> if the type inherits from <see cref="StronglyTypedId{TId, TUnderlying}"/>;
-  /// otherwise, <see langword="false"/>.
-  /// </returns>
-  /// <remarks>
-  /// This method traverses the inheritance hierarchy to check if the type derives from 
-  /// <see cref="StronglyTypedId{TId, TUnderlying}"/> at any level.
-  /// </remarks>
+  /// <param name="typeToConvert">Candidate CLR type.</param>
+  /// <returns><c>true</c> if supported; otherwise <c>false</c>.</returns>
   public override bool CanConvert(Type typeToConvert) {
     var t = typeToConvert;
     while (t != null) {
       if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(StronglyTypedId<,>)) {
         return true;
       }
-
       t = t.BaseType;
     }
     return false;
   }
 
   /// <summary>
-  /// Creates a converter for the specified type.
+  /// Creates a concrete JSON converter for the specified strongly-typed identifier.
   /// </summary>
-  /// <param name="typeToConvert">The type to create a converter for.</param>
-  /// <param name="options">The serializer options to use.</param>
-  /// <returns>A converter that can process the specified type.</returns>
-  /// <exception cref="ArgumentNullException">Thrown if <paramref name="typeToConvert"/> is null.</exception>
-  /// <exception cref="NotSupportedException">Thrown if the type is not a StronglyTypedId.</exception>
-  /// <remarks>
-  /// This method dynamically creates an instance of <see cref="StronglyTypedIdJsonConverter{TId, TUnderlying}"/>
-  /// with the appropriate generic type arguments for the requested type.
-  /// </remarks>
+  /// <param name="typeToConvert">Concrete strongly-typed id type.</param>
+  /// <param name="options">Serializer options (ignored).</param>
+  /// <returns>Instance of a closed <see cref="StronglyTypedIdJsonConverter{TId, TUnderlying}"/>.</returns>
+  /// <exception cref="ArgumentNullException">When <paramref name="typeToConvert"/> is null.</exception>
+  /// <exception cref="NotSupportedException">When <paramref name="typeToConvert"/> is not a strongly-typed id.</exception>
   public override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options) {
     ArgumentNullException.ThrowIfNull(typeToConvert);
     if (!CanConvert(typeToConvert)) {
       throw new NotSupportedException($"Type {typeToConvert.Name} is not a StronglyTypedId");
     }
+
     var baseType = typeToConvert;
     while (!(baseType.IsGenericType && baseType.GetGenericTypeDefinition() == typeof(StronglyTypedId<,>))) {
-      baseType = baseType.BaseType!;
+      baseType = baseType.BaseType!; // Safe: loop guarded by CanConvert earlier
     }
 
-    var args = baseType.GetGenericArguments();
-    var converterType = typeof(StronglyTypedIdJsonConverter<,>)
-        .MakeGenericType(typeToConvert, args[1]);
-
+    var args = baseType.GetGenericArguments(); // [TId, TUnderlying]
+    var converterType = typeof(StronglyTypedIdJsonConverter<,>).MakeGenericType(typeToConvert, args[1]);
     return (JsonConverter)Activator.CreateInstance(converterType)!;
   }
 }

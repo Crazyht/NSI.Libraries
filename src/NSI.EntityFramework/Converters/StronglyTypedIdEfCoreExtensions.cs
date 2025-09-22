@@ -3,96 +3,101 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NSI.Domains.StrongIdentifier;
 
 namespace NSI.EntityFramework.Converters;
+
 /// <summary>
-/// Extension methods for automatically applying strongly-typed ID conversions in Entity Framework Core.
+/// EF Core extensions for auto-configuring value converters for strongly-typed identifiers.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This class provides functionality to automatically configure Entity Framework Core to work with
-/// strongly-typed IDs derived from <see cref="StronglyTypedId{TId, TUnderlying}"/>. When applied,
-/// it ensures that all strongly-typed ID properties throughout your entity model will be properly
-/// mapped to their underlying primitive values in the database.
+/// Scans the EF Core model and applies <see cref="ValueConverter"/> instances for all properties
+/// whose CLR type derives from <see cref="StronglyTypedId{TId, TUnderlying}"/> ensuring they are
+/// persisted as their underlying primitive type (e.g. <c>Guid</c>, <c>int</c>, <c>long</c>, <c>string</c>).
 /// </para>
-/// <para>
-/// Without these converters, Entity Framework Core would attempt to map strongly-typed IDs as complex
-/// types rather than as the primitive values they represent, leading to mapping errors or inefficient
-/// storage.
+/// <para>Semantics:
+/// <list type="bullet">
+///   <item><description>Executed during <see cref="DbContext.OnModelCreating(ModelBuilder)"/>.</description></item>
+///   <item><description>Id properties remain strongly-typed in domain model; storage stays primitive.</description></item>
+///   <item><description>Id conversion is transparent to queries and change tracking.</description></item>
+/// </list>
 /// </para>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Invoke once per context (idempotent and safe to repeat).</description></item>
+///   <item><description>Place after custom entity configuration so overrides remain effective.</description></item>
+///   <item><description>Keep strongly-typed Id types minimal (single value) for optimal mapping.</description></item>
+/// </list>
+/// </para>
+/// <para>Performance:
+/// <list type="bullet">
+///   <item><description>Reflection occurs only during model building (not per query).</description></item>
+///   <item><description>Converter instances cached by EF Core after assignment.</description></item>
+///   <item><description>Traversal complexity: O(entityTypes * properties).</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: Model building is single-threaded by EF Core; no additional safeguards needed.</para>
+/// <para>Reflection Justification: Runtime discovery of generic arguments is required; expression-based
+/// compile-time enumeration (preferred in guidelines) is not possible for arbitrary model graphs.
+/// This usage aligns with the "last resort dynamic" clause in reflection standards.</para>
 /// </remarks>
+/// <example>
+/// <code>
+/// protected override void OnModelCreating(ModelBuilder modelBuilder) {
+///   base.OnModelCreating(modelBuilder);
+///   modelBuilder.ApplyStronglyTypedIdConversions();
+/// }
+/// </code>
+/// </example>
 public static class StronglyTypedIdEfCoreExtensions {
   /// <summary>
-  /// Applies value converters to all properties in the model that use strongly-typed IDs.
+  /// Applies value converters to all model properties typed as <see cref="StronglyTypedId{TId, TUnderlying}"/>.
   /// </summary>
-  /// <param name="modelBuilder">The model builder being used to construct the Entity Framework model.</param>
-  /// <exception cref="ArgumentNullException">Thrown if <paramref name="modelBuilder"/> is null.</exception>
+  /// <param name="modelBuilder">Model builder instance (non-null).</param>
+  /// <exception cref="ArgumentNullException">Thrown when <paramref name="modelBuilder"/> is null.</exception>
   /// <remarks>
-  /// <para>
-  /// This extension method scans all entity types in the model and automatically applies appropriate
-  /// value converters to any properties that use strongly-typed IDs. This enables transparent
-  /// persistence of strongly-typed IDs as their underlying primitive values.
-  /// </para>
-  /// <para>
-  /// Call this method in your <see cref="DbContext.OnModelCreating(ModelBuilder)"/> method to
-  /// ensure all strongly-typed IDs in your model are properly configured for database persistence.
-  /// </para>
+  /// Safe to call multiple times; previously configured properties are simply reassigned same converter.
   /// </remarks>
-  /// <example>
-  /// Usage in <c>DbContext.OnModelCreating</c>:
-  /// <code>
-  /// protected override void OnModelCreating(ModelBuilder modelBuilder)
-  /// {
-  ///     base.OnModelCreating(modelBuilder);
-  ///     
-  ///     // Apply converters for all strongly-typed IDs in the model
-  ///     modelBuilder.ApplyStronglyTypedIdConversions();
-  ///     
-  ///     // Continue with other model configurations...
-  /// }
-  /// </code>
-  /// </example>
   public static void ApplyStronglyTypedIdConversions(this ModelBuilder modelBuilder) {
     ArgumentNullException.ThrowIfNull(modelBuilder);
     var baseGeneric = typeof(StronglyTypedId<,>);
     foreach (var entityType in modelBuilder.Model.GetEntityTypes()) {
-      foreach (var prop in entityType.GetProperties()) {
-        var clr = prop.ClrType;
-        if (TryGetStronglyTypedIdConverter(clr, baseGeneric, out var converter)) {
-          prop.SetValueConverter(converter);
+      foreach (var property in entityType.GetProperties()) {
+        var clrType = property.ClrType;
+        if (TryGetStronglyTypedIdConverter(clrType, baseGeneric, out var converter)) {
+          property.SetValueConverter(converter);
         }
       }
     }
   }
 
   /// <summary>
-  /// Attempts to create a value converter for a type if it inherits from <see cref="StronglyTypedId{TId, TUnderlying}"/>.
+  /// Attempts to create a value converter for the specified CLR type when it derives from
+  /// <see cref="StronglyTypedId{TId, TUnderlying}"/>.
   /// </summary>
-  /// <param name="clr">The CLR type to check.</param>
-  /// <param name="baseGeneric">The base generic type for strongly-typed IDs (<see cref="StronglyTypedId{TId, TUnderlying}"/>).</param>
-  /// <param name="converter">When this method returns, contains the value converter if successful; otherwise, null.</param>
-  /// <returns><see langword="true"/> if a converter was created; otherwise, <see langword="false"/>.</returns>
+  /// <param name="clr">CLR type to evaluate.</param>
+  /// <param name="baseGeneric">Closed generic definition (<see cref="StronglyTypedId{TId, TUnderlying}"/>).</param>
+  /// <param name="converter">Resulting converter if successful; otherwise null.</param>
+  /// <returns><c>true</c> if a converter was created; otherwise <c>false</c>.</returns>
   /// <remarks>
-  /// This method traverses the type hierarchy to find if the given type is a strongly-typed ID,
-  /// and if so, creates an appropriate <see cref="StronglyTypedIdValueConverter{TId, TUnderlying}"/>
-  /// for it using reflection to determine the correct generic type arguments.
+  /// Traverses the inheritance chain to locate the generic base type, extracts the concrete id and
+  /// underlying primitive types, then constructs <see cref="StronglyTypedIdValueConverter{TId, TUnderlying}"/>.
   /// </remarks>
-  private static bool TryGetStronglyTypedIdConverter(Type clr, Type baseGeneric, out ValueConverter? converter) {
+  private static bool TryGetStronglyTypedIdConverter(
+    Type clr,
+    Type baseGeneric,
+    out ValueConverter? converter) {
     converter = null;
     var current = clr;
-
     while (current != null) {
       if (current.IsGenericType && current.GetGenericTypeDefinition() == baseGeneric) {
         var args = current.GetGenericArguments();
-        var derivedType = clr;
+        var idType = clr;            // the derived strongly-typed id
         var underlyingType = args[1];
-
-        var converterType = typeof(StronglyTypedIdValueConverter<,>)
-            .MakeGenericType(derivedType, underlyingType);
+        var converterType = typeof(StronglyTypedIdValueConverter<,>).MakeGenericType(idType, underlyingType);
         converter = (ValueConverter)Activator.CreateInstance(converterType)!;
         return true;
       }
       current = current.BaseType;
     }
-
     return false;
   }
 }

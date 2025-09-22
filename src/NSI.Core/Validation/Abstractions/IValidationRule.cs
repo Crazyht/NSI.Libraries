@@ -1,56 +1,73 @@
 namespace NSI.Core.Validation.Abstractions;
+
 /// <summary>
-/// Defines a validation rule that can be applied to an object.
+/// Defines a synchronous validation rule that evaluates a single business or data constraint.
 /// </summary>
 /// <typeparam name="T">The type of object to validate.</typeparam>
 /// <remarks>
 /// <para>
-/// This interface defines a synchronous validation rule that evaluates a specific
-/// business or data integrity constraint on a domain object. Each implementation
-/// should represent a single, focused validation rule.
+/// A rule focuses on one validation concern (Single Responsibility) and emits zero or more
+/// <see cref="IValidationError"/> instances describing failures. Synchronous rules should perform
+/// only CPU‑bound or trivially fast operations; for I/O or async work use
+/// <see cref="IAsyncValidationRule{T}"/>.
 /// </para>
 /// <para>
-/// Validation rules can be combined and executed in sequence to perform complex
-/// validation operations. For asynchronous validation operations, use
-/// <see cref="IAsyncValidationRule{T}"/> instead.
+/// Semantics:
+/// <list type="bullet">
+///   <item><description>Return an empty sequence (never <see langword="null"/>) when validation passes.</description></item>
+///   <item><description>Yield one <see cref="IValidationError"/> per discrete failure condition.</description></item>
+///   <item><description>Do not throw for normal validation failures—encode them as errors.</description></item>
+///   <item><description>Throw only for programmer errors (e.g. required dependencies are null).</description></item>
+/// </list>
 /// </para>
 /// <para>
-/// Example usage:
+/// Guidelines:
+/// <list type="bullet">
+///   <item><description>Keep logic side‑effect free; rules may be re‑run.</description></item>
+///   <item><description>Avoid allocations in success path (branch early).</description></item>
+///   <item><description>Use dot notation for nested property names (e.g. <c>Address.City</c>).</description></item>
+///   <item><description>Prefer iterator (<c>yield return</c>) for conditional error emission.</description></item>
+/// </list>
+/// </para>
+/// <para>
+/// Thread-safety: Implementations should be stateless or immutable; shared instances can then be
+/// reused safely across threads.
+/// </para>
+/// <para>
+/// Performance: Minimize allocations; avoid creating collections when there are no failures.
+/// </para>
+/// </remarks>
+/// <example>
 /// <code>
-/// public class EmailFormatRule : IValidationRule&lt;User&gt; {
+/// public sealed class EmailFormatRule: IValidationRule&lt;User&gt; {
+///   private static readonly Regex Pattern =
+///     new("^[^@\\n]+@[^@\\n]+\\.[^@\\n]+$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+///
 ///   public IEnumerable&lt;IValidationError&gt; Validate(User instance, IValidationContext context) {
-///     if (instance?.Email == null || !IsValidEmail(instance.Email)) {
-///       yield return new ValidationError {
-///         PropertyName = nameof(User.Email),
-///         ErrorCode = "INVALID_FORMAT",
-///         ErrorMessage = "Email address has an invalid format."
-///       };
+///     ArgumentNullException.ThrowIfNull(instance);
+///     ArgumentNullException.ThrowIfNull(context);
+///
+///     if (string.IsNullOrWhiteSpace(instance.Email)) {
+///       yield return new ValidationError("Email", "REQUIRED", "Email is required");
+///       yield break;
+///     }
+///     if (!Pattern.IsMatch(instance.Email)) {
+///       yield return new ValidationError("Email", "INVALID_FORMAT", "Email format is invalid");
 ///     }
 ///   }
 /// }
 /// </code>
-/// </para>
-/// </remarks>
+/// </example>
 public interface IValidationRule<T> {
   /// <summary>
-  /// Validates the specified object.
+  /// Validates the specified <paramref name="instance"/> and returns any failures.
   /// </summary>
-  /// <param name="instance">The object to validate.</param>
-  /// <param name="context">The validation context containing additional information.</param>
+  /// <param name="instance">Object to validate (never null).</param>
+  /// <param name="context">Ambient validation context (never null).</param>
   /// <returns>
-  /// A collection of validation errors. Returns an empty collection when validation passes.
+  /// A (possibly empty) sequence of <see cref="IValidationError"/>. Empty when validation succeeds.
+  /// Never <see langword="null"/>.
   /// </returns>
-  /// <remarks>
-  /// <para>
-  /// This method performs validation on the provided instance and returns any
-  /// validation errors that are found. If validation passes, an empty collection
-  /// should be returned, not null.
-  /// </para>
-  /// <para>
-  /// The validation context can be used to access dependencies or additional data
-  /// needed for validation logic.
-  /// </para>
-  /// </remarks>
   /// <exception cref="ArgumentNullException">
   /// Thrown when <paramref name="instance"/> or <paramref name="context"/> is null.
   /// </exception>

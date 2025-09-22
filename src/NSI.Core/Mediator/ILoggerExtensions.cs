@@ -223,6 +223,14 @@ internal static partial class ILoggerExtensions {
 
   [LoggerMessage(
     EventId = 33,
+    EventName = "DecoratorValidationSkipped",
+    Level = LogLevel.Debug,
+    Message = "Validation skipped for {RequestName}: No validator registered"
+  )]
+  public static partial void LogDecoratorValidationSkipped(this ILogger logger, string requestName);
+
+  [LoggerMessage(
+    EventId = 34,
     EventName = "DecoratorValidationDataAnnotations",
     Level = LogLevel.Debug,
     Message = "Performing Data Annotations validation for {RequestName}"
@@ -230,7 +238,7 @@ internal static partial class ILoggerExtensions {
   public static partial void LogDecoratorValidationDataAnnotations(this ILogger logger, string requestName);
 
   [LoggerMessage(
-    EventId = 34,
+    EventId = 35,
     EventName = "DecoratorValidationCustom",
     Level = LogLevel.Debug,
     Message = "Performing custom validation for {RequestName}"
@@ -238,7 +246,7 @@ internal static partial class ILoggerExtensions {
   public static partial void LogDecoratorValidationCustom(this ILogger logger, string requestName);
 
   [LoggerMessage(
-    EventId = 35,
+    EventId = 36,
     EventName = "DecoratorValidationCustomFailed",
     Level = LogLevel.Warning,
     Message = "Custom validation failed for {RequestName}: {ErrorMessage}"

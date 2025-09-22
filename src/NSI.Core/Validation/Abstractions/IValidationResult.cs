@@ -1,64 +1,57 @@
 namespace NSI.Core.Validation.Abstractions;
+
 /// <summary>
-/// Represents the result of a validation operation.
+/// Aggregates the outcome of validating an object (success flag + immutable error list).
 /// </summary>
 /// <remarks>
 /// <para>
-/// This interface provides a standardized way to represent validation results
-/// throughout the application. It includes both a boolean indicator of validity
-/// and a collection of any validation errors that occurred.
+/// Provides a standardized contract so validation pipelines, mediators and API layers can
+/// interrogate validation outcomes uniformly without coupling to concrete implementations.
 /// </para>
 /// <para>
-/// Validation results can be used to:
+/// Semantics:
 /// <list type="bullet">
-///   <item><description>Determine if an object is valid before processing</description></item>
-///   <item><description>Collect and return detailed validation errors to clients</description></item>
-///   <item><description>Aggregate validation results from multiple validation operations</description></item>
+///   <item><description><see cref="IsValid"/> is true when there are no errors.</description></item>
+///   <item><description><see cref="Errors"/> is an immutable sequence (never <see langword="null"/>).</description></item>
+///   <item><description>Error ordering should reflect rule evaluation order (stable for determinism).</description></item>
 /// </list>
 /// </para>
 /// <para>
-/// Example usage:
+/// Guidelines:
+/// <list type="bullet">
+///   <item><description>Return a cached empty instance for the success case where practical.</description></item>
+///   <item><description>Do not expose mutable collections; defensive copy if needed.</description></item>
+///   <item><description>Never throw to signal business validation failure—use errors.</description></item>
+///   <item><description>Keep error codes stable for client compatibility.</description></item>
+/// </list>
+/// </para>
+/// <para>
+/// Thread-safety: Implementations should be immutable; consumers treat instances as read-only.
+/// </para>
+/// </remarks>
+/// <example>
 /// <code>
-/// var result = await validator.ValidateAsync(user);
+/// var result = await validator.ValidateAsync(user, context, ct);
 /// if (!result.IsValid) {
-///   foreach (var error in result.Errors) {
-///     Console.WriteLine($"{error.PropertyName}: {error.ErrorMessage}");
+///   foreach (var err in result.Errors) {
+///     Console.WriteLine($"{err.PropertyName}: {err.ErrorMessage} ({err.ErrorCode})");
 ///   }
 /// }
 /// </code>
-/// </para>
-/// </remarks>
+/// </example>
 public interface IValidationResult {
   /// <summary>
-  /// Gets a value indicating whether the validation passed.
+  /// Gets a value indicating whether validation produced zero errors.
   /// </summary>
-  /// <remarks>
-  /// <para>
-  /// Returns <see langword="true"/> when no validation errors were found,
-  /// otherwise <see langword="false"/>.
-  /// </para>
-  /// <para>
-  /// This property provides a quick way to check validation status without
-  /// examining the individual errors.
-  /// </para>
-  /// </remarks>
+  /// <remarks>Equivalent to <c>Errors.Count == 0</c>. Always deterministic.</remarks>
   public bool IsValid { get; }
 
   /// <summary>
-  /// Gets the collection of validation errors.
+  /// Gets the immutable collection of validation errors (empty when <see cref="IsValid"/> is true).
   /// </summary>
   /// <remarks>
-  /// <para>
-  /// Returns an empty collection when validation passes (IsValid is true).
-  /// </para>
-  /// <para>
-  /// Each <see cref="IValidationError"/> in the collection contains detailed
-  /// information about a specific validation failure, including the property name,
-  /// error code, and a human-readable error message.
-  /// </para>
-  /// <para>
-  /// The collection is read-only to prevent modification after validation is complete.
-  /// </para>
+  /// Each <see cref="IValidationError"/> contains structured failure metadata (property, code, message).
+  /// The list reference and its elements must not be mutated after creation.
   /// </remarks>
   public IReadOnlyList<IValidationError> Errors { get; }
 }

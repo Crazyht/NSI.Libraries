@@ -1,51 +1,55 @@
 namespace NSI.Domains.Audit;
 
 /// <summary>
-/// Interface for entities that require audit tracking of creation and modification operations.
-/// When implemented, entities will automatically have their audit fields populated during database operations.
+/// Contract for entities whose lifecycle (create/modify) must be audited.
 /// </summary>
 /// <remarks>
-/// The DbContext automatically sets these properties during SaveChanges operations:
-/// - When an entity is created, <see cref="CreatedOn"/> and <see cref="CreatedBy"/> are set
-/// - When an entity is modified, <see cref="ModifiedOn"/> and <see cref="ModifiedBy"/> are set
+/// <para>
+/// Infrastructure (e.g., EF Core interceptors) populates audit fields automatically
+/// during persistence. Domain code should not mutate these outside of seeding/import
+/// routines to preserve integrity of audit history.
+/// </para>
+/// <para>Semantics:
+/// <list type="bullet">
+///   <item><description><see cref="CreatedOn"/> / <see cref="CreatedBy"/> set once on initial insert.</description></item>
+///   <item><description><see cref="ModifiedOn"/> / <see cref="ModifiedBy"/> updated on each successful update.</description></item>
+///   <item><description>Values remain <c>null</c> for transient (not yet persisted) entities.</description></item>
+///   <item><description>Implementations must expose writable setters for infrastructure assignment.</description></item>
+/// </list>
+/// </para>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Exclude audit properties from equality or domain invariants.</description></item>
+///   <item><description>Expose audit data in read models / DTOs only when required by UI.</description></item>
+///   <item><description>Prefer UTC timestamps (enforced by infrastructure layer).</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: Entity instances are not thread-safe; treat as unit-of-work scoped state.</para>
+/// <para>Performance: Overhead limited to simple property assignments per tracked modification.</para>
 /// </remarks>
 /// <example>
 /// <code>
-/// public class Product : IAuditableEntity 
-/// {
-///     public Guid Id { get; set; }
-///     public string Name { get; set; }
-///     
-///     // IAuditableEntity implementation
-///     public DateTime? CreatedOn { get; set; }
-///     public UserId? CreatedBy { get; set; }
-///     public DateTime? ModifiedOn { get; set; }
-///     public UserId? ModifiedBy { get; set; }
+/// public sealed class Product: IAuditableEntity {
+///   public Guid Id { get; init; }
+///   public string Name { get; set; } = string.Empty;
+///   public DateTime? CreatedOn { get; set; }
+///   public UserId? CreatedBy { get; set; }
+///   public DateTime? ModifiedOn { get; set; }
+///   public UserId? ModifiedBy { get; set; }
 /// }
 /// </code>
 /// </example>
+/// <seealso cref="UserId"/>
 public interface IAuditableEntity {
-  /// <summary>
-  /// Gets or sets the date and time when the entity was created.
-  /// This is automatically set by the database context during entity creation.
-  /// </summary>
+  /// <summary>UTC timestamp of initial persistence.</summary>
   public DateTime? CreatedOn { get; set; }
 
-  /// <summary>
-  /// Gets or sets the ID of the user who created the entity.
-  /// This is automatically set by the database context during entity creation.
-  /// </summary>
+  /// <summary>User/system identifier that created the entity.</summary>
   public UserId? CreatedBy { get; set; }
 
-  /// <summary>
-  /// Gets or sets the date and time when the entity was last modified.
-  /// This is automatically set by the database context during entity updates.
-  /// </summary>
+  /// <summary>UTC timestamp of last persisted modification.</summary>
   public DateTime? ModifiedOn { get; set; }
 
-  /// <summary>
-  /// Gets or sets the ID of the user who last modified the entity.
-  /// This is automatically set by the database context during entity updates.
-  /// </summary>
+  /// <summary>User/system identifier that performed last modification.</summary>
   public UserId? ModifiedBy { get; set; }
 }

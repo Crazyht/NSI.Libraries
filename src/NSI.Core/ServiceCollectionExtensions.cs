@@ -7,99 +7,81 @@ using NSI.Core.Identity;
 using NSI.Core.Validation.Abstractions;
 
 namespace NSI.Core;
+
 /// <summary>
-/// Provides extension methods for <see cref="IServiceCollection"/> to register NSI Core services.
+/// DI registration helpers for NSI.Core services (validation, identity helpers, utilities).
 /// </summary>
 /// <remarks>
 /// <para>
-/// These extension methods simplify the registration of common services from the NSI Core library,
-/// including validation, user access, and other infrastructure components.
+/// Centralizes typical service wiring to ensure consistent lifetimes and reduce boilerplate in
+/// host applications. All methods follow a fluent pattern returning the supplied
+/// <see cref="IServiceCollection"/> to enable chaining.
 /// </para>
-/// <para>
-/// The methods follow a fluent API pattern to allow method chaining during service registration.
+/// <para>Semantics:
+/// <list type="bullet">
+///   <item><description>Never replaces existing registrations explicitly added by the consumer.</description></item>
+///   <item><description>Validator scanning only registers concrete non-abstract, non-generic types implementing <see cref="IValidator{T}"/>.</description></item>
+///   <item><description>Idempotent: multiple invocations produce no duplicate service mappings.</description></item>
+/// </list>
 /// </para>
+/// <para>Guidelines:
+/// <list type="bullet">
+///   <item><description>Prefer assembly-scoped validator registration during startup (cold path).</description></item>
+///   <item><description>Use <see cref="AddValidator{TModel,TValidator}(IServiceCollection,ServiceLifetime)"/> for bespoke lifetimes.</description></item>
+///   <item><description>Keep assemblies list minimal to reduce reflection cost.</description></item>
+/// </list>
+/// </para>
+/// <para>Thread-safety: Methods are safe to call during startup single-thread initialization. Not
+/// intended for dynamic runtime mutation after container build.</para>
+/// <para>Performance: Reflection scanning occurs only once per call; uses hashing to avoid duplicate
+/// registrations. Typical usage keeps overhead negligible at application start.</para>
 /// </remarks>
 public static class ServiceCollectionExtensions {
   /// <summary>
-  /// Adds daemon user accessor services to the service collection with configuration.
+  /// Registers daemon (service) user accessor and binds <see cref="ServiceUserSettings"/> from config.
   /// </summary>
-  /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
-  /// <param name="configuration">The configuration section containing service user settings.</param>
-  /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+  /// <param name="services">Target service collection (not null).</param>
+  /// <param name="configuration">Configuration root or section containing ServiceUserSettings.</param>
+  /// <returns>The same service collection for chaining.</returns>
+  /// <exception cref="ArgumentNullException">When <paramref name="services"/> or <paramref name="configuration"/> is null.</exception>
   /// <remarks>
   /// <para>
-  /// This method configures <see cref="ServiceUserSettings"/> and registers <see cref="DaemonUserAccessor"/> 
-  /// as a singleton implementation of <see cref="IUserAccessor"/> for use in non-interactive contexts.
-  /// </para>
-  /// <para>
-  /// This method automatically configures the <see cref="ServiceUserSettings"/> options from the 
-  /// provided configuration section, simplifying setup compared to manual configuration.
+  /// Binds the configuration section named "ServiceUserSettings" into options and exposes both the
+  /// options wrapper and the concrete POCO for direct injection. Registers <see cref="DaemonUserAccessor"/>
+  /// as <see cref="IUserAccessor"/> (singleton) for non-interactive/background contexts.
   /// </para>
   /// </remarks>
-  /// <example>
-  /// Registration in service configuration:
-  /// <code>
-  /// public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
-  /// {
-  ///     // Add daemon user accessor with configuration in a single call
-  ///     services.AddDaemonUserAccessor(configuration.GetSection("ServiceUser"));
-  ///     
-  ///     // Other service registrations...
-  /// }
-  /// </code>
-  /// </example>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="services"/> or <paramref name="configuration"/> is null.
-  /// </exception>
-  public static IServiceCollection AddDaemonUserAccessor(this IServiceCollection services, IConfiguration configuration) {
+  public static IServiceCollection AddDaemonUserAccessor(
+    this IServiceCollection services,
+    IConfiguration configuration) {
     ArgumentNullException.ThrowIfNull(services);
     ArgumentNullException.ThrowIfNull(configuration);
 
-    // Binds the "ServiceUserSettings" section of appSettings.json to the options
     services.Configure<ServiceUserSettings>(options =>
-        configuration.GetSection("ServiceUserSettings").Bind(options));
+      configuration.GetSection("ServiceUserSettings").Bind(options));
 
-    // Registers the actual POCO as a singleton for direct injection
-    services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ServiceUserSettings>>().Value);
-
-    // Register the daemon user accessor as the IUserAccessor implementation
+    services.AddSingleton(sp => sp.GetRequiredService<IOptions<ServiceUserSettings>>().Value);
     services.AddSingleton<IUserAccessor, DaemonUserAccessor>();
-
     return services;
   }
 
   /// <summary>
-  /// Registers all validator implementations from the specified assemblies.
+  /// Scans provided assemblies (or calling assembly) and registers all <see cref="IValidator{T}"/> implementations.
   /// </summary>
-  /// <param name="services">The service collection.</param>
-  /// <param name="assemblies">The assemblies to scan for validators.</param>
-  /// <returns>The service collection for method chaining.</returns>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="services"/> or <paramref name="assemblies"/> is null.
-  /// </exception>
+  /// <param name="services">Target service collection (not null).</param>
+  /// <param name="assemblies">Assemblies to scan; when empty uses calling assembly.</param>
+  /// <returns>The same service collection for chaining.</returns>
+  /// <exception cref="ArgumentNullException">When <paramref name="services"/> or <paramref name="assemblies"/> is null.</exception>
   /// <remarks>
   /// <para>
-  /// This method scans the specified assemblies for classes that implement
-  /// <see cref="IValidator{T}"/> and registers them with the dependency injection
-  /// container using scoped lifetime.
-  /// </para>
-  /// <para>
-  /// If no assemblies are specified, the calling assembly is used by default.
-  /// Classes are registered only if they aren't already registered (using TryAdd).
+  /// A validator type is registered with scoped lifetime if:
+  /// <list type="bullet">
+  ///   <item><description>It is a non-abstract, non-generic class.</description></item>
+  ///   <item><description>It implements one or more closed <see cref="IValidator{T}"/> interfaces.</description></item>
+  /// </list>
+  /// Duplicate (interface, implementation) pairs are ignored via TryAdd semantics.
   /// </para>
   /// </remarks>
-  /// <example>
-  /// <code>
-  /// // Register validators from multiple assemblies
-  /// services.AddValidators(
-  ///     typeof(UserValidator).Assembly,
-  ///     typeof(OrderValidator).Assembly
-  /// );
-  /// 
-  /// // Register validators from the calling assembly
-  /// services.AddValidators();
-  /// </code>
-  /// </example>
   public static IServiceCollection AddValidators(
     this IServiceCollection services,
     params Assembly[] assemblies) {
@@ -110,95 +92,79 @@ public static class ServiceCollectionExtensions {
       assemblies = [Assembly.GetCallingAssembly()];
     }
 
-    var validatorInterface = typeof(IValidator<>);
+    var seen = new HashSet<(Type iface, Type impl)>();
+    foreach (var asm in assemblies.Where(a => a is not null)) {
+      RegisterValidatorsFromAssembly(services, asm, seen);
+    }
+    return services;
 
-    foreach (var assembly in assemblies) {
-      var validators = assembly.GetTypes()
-        .Where(t => t.IsClass && !t.IsAbstract && !t.IsGenericTypeDefinition)
-        .SelectMany(t => t.GetInterfaces()
-          .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == validatorInterface)
-          .Select(i => new { Implementation = t, Interface = i }))
-        .ToList();
-
-      foreach (var validator in validators) {
-        services.TryAddScoped(validator.Interface, validator.Implementation);
+    static void RegisterValidatorsFromAssembly(
+      IServiceCollection services,
+      Assembly assembly,
+      HashSet<(Type iface, Type impl)> seen) {
+      var validatorOpen = typeof(IValidator<>);
+      foreach (var type in SafeGetTypes(assembly)) {
+        if (!IsConcreteValidatorCandidate(type)) {
+          continue;
+        }
+        RegisterValidatorInterfaces(services, type, validatorOpen, seen);
       }
     }
 
-    return services;
+    static void RegisterValidatorInterfaces(
+      IServiceCollection services,
+      Type implementation,
+      Type validatorOpen,
+      HashSet<(Type iface, Type impl)> seen) {
+      foreach (var iface in implementation.GetInterfaces()) {
+        if (!IsValidatorInterface(iface, validatorOpen)) {
+          continue;
+        }
+        if (!seen.Add((iface, implementation))) {
+          continue;
+        }
+        services.TryAddScoped(iface, implementation);
+      }
+    }
+
+    static IEnumerable<Type> SafeGetTypes(Assembly asm) {
+      try {
+        return asm.GetTypes();
+      } catch (ReflectionTypeLoadException ex) {
+        return ex.Types.Where(t => t is not null)!;
+      }
+    }
+
+    static bool IsValidatorInterface(Type iface, Type open) =>
+      iface.IsGenericType && iface.GetGenericTypeDefinition() == open;
+
+    static bool IsConcreteValidatorCandidate(Type t) =>
+      t is { IsClass: true, IsAbstract: false } && !t.IsGenericTypeDefinition;
   }
 
   /// <summary>
-  /// Registers all validators from the assembly containing the specified type.
+  /// Registers validators from the assembly containing the marker <typeparamref name="T"/>.
   /// </summary>
-  /// <typeparam name="T">A type from the assembly to scan.</typeparam>
-  /// <param name="services">The service collection.</param>
-  /// <returns>The service collection for method chaining.</returns>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="services"/> is null.
-  /// </exception>
-  /// <remarks>
-  /// <para>
-  /// This is a convenience method that scans the assembly containing the specified
-  /// marker type for validator implementations and registers them with the dependency
-  /// injection container.
-  /// </para>
-  /// <para>
-  /// Use this method when you want to register all validators from a specific assembly
-  /// without explicitly passing the assembly instance.
-  /// </para>
-  /// </remarks>
-  /// <example>
-  /// <code>
-  /// // Register all validators from the assembly containing UserValidator
-  /// services.AddValidatorsFromAssemblyContaining&lt;UserValidator&gt;();
-  /// </code>
-  /// </example>
   public static IServiceCollection AddValidatorsFromAssemblyContaining<T>(
-    this IServiceCollection services) {
-    ArgumentNullException.ThrowIfNull(services);
-
-    return services.AddValidators(typeof(T).Assembly);
-  }
+    this IServiceCollection services) =>
+    services is null
+      ? throw new ArgumentNullException(nameof(services))
+      : services.AddValidators(typeof(T).Assembly);
 
   /// <summary>
-  /// Registers a specific validator implementation.
+  /// Registers a specific validator implementation with chosen lifetime.
   /// </summary>
-  /// <typeparam name="TModel">The model type being validated.</typeparam>
-  /// <typeparam name="TValidator">The validator implementation type.</typeparam>
-  /// <param name="services">The service collection.</param>
-  /// <param name="lifetime">The service lifetime (default is Scoped).</param>
-  /// <returns>The service collection for method chaining.</returns>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="services"/> is null.
-  /// </exception>
-  /// <exception cref="ArgumentOutOfRangeException">
-  /// Thrown when <paramref name="lifetime"/> is not a valid <see cref="ServiceLifetime"/> value.
-  /// </exception>
-  /// <remarks>
-  /// <para>
-  /// This method registers a specific validator implementation for a model type with
-  /// the specified service lifetime. Unlike <see cref="AddValidators"/>, this method
-  /// allows you to register a single validator with precise control over its lifetime.
-  /// </para>
-  /// <para>
-  /// The default lifetime is Scoped, which is appropriate for most validators that
-  /// may have dependencies on scoped services like database contexts.
-  /// </para>
-  /// </remarks>
-  /// <example>
-  /// <code>
-  /// // Register with default scoped lifetime
-  /// services.AddValidator&lt;User, UserValidator&gt;();
-  /// 
-  /// // Register with singleton lifetime
-  /// services.AddValidator&lt;Product, ProductValidator&gt;(ServiceLifetime.Singleton);
-  /// </code>
-  /// </example>
+  /// <typeparam name="TModel">Validated model type.</typeparam>
+  /// <typeparam name="TValidator">Concrete validator implementing <see cref="IValidator{TModel}"/>.</typeparam>
+  /// <param name="services">Target collection.</param>
+  /// <param name="lifetime">Service lifetime (default Scoped).</param>
+  /// <returns>The same service collection.</returns>
+  /// <exception cref="ArgumentNullException">When <paramref name="services"/> is null.</exception>
+  /// <exception cref="ArgumentOutOfRangeException">Invalid <paramref name="lifetime"/> value.</exception>
   public static IServiceCollection AddValidator<TModel, TValidator>(
-        this IServiceCollection services,
-        ServiceLifetime lifetime = ServiceLifetime.Scoped)
-        where TValidator : class, IValidator<TModel> {
+    this IServiceCollection services,
+    ServiceLifetime lifetime = ServiceLifetime.Scoped)
+    where TValidator : class, IValidator<TModel> {
     ArgumentNullException.ThrowIfNull(services);
 
     return lifetime switch {

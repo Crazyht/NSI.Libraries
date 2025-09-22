@@ -1,4 +1,5 @@
 namespace NSI.Core.Mediator.Abstractions;
+
 /// <summary>
 /// Marker interface for fire-and-forget notifications that may be handled by multiple handlers.
 /// </summary>
@@ -17,17 +18,48 @@ namespace NSI.Core.Mediator.Abstractions;
 ///   <item><description>Resilient: Failure of one handler doesn't affect others</description></item>
 /// </list>
 /// </para>
+/// <para>
+/// Notifications are processed by <see cref="IMediator.DispatchAsync{TNotification}"/> in a 
+/// fire-and-forget manner, where multiple <see cref="IRequestHandler{TRequest, TResponse}"/> 
+/// implementations can handle the same notification independently.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
-/// public record UserCreatedNotification(Guid UserId, string Email, DateTime CreatedAt) : INotification;
-/// public record OrderCompletedNotification(Guid OrderId, Guid CustomerId, decimal Amount) : INotification;
-/// public record PaymentFailedNotification(Guid PaymentId, string Reason) : INotification;
+/// public record UserCreatedNotification(Guid UserId, string Email, DateTime CreatedAt): INotification;
+/// public record OrderCompletedNotification(Guid OrderId, Guid CustomerId, decimal Amount): INotification;
+/// public record PaymentFailedNotification(Guid PaymentId, string Reason): INotification;
 /// 
 /// // Multiple handlers can process the same notification
-/// public class SendWelcomeEmailHandler : IRequestHandler&lt;UserCreatedNotification, Unit&gt; { }
-/// public class CreateUserProfileHandler : IRequestHandler&lt;UserCreatedNotification, Unit&gt; { }
-/// public class UpdateAnalyticsHandler : IRequestHandler&lt;UserCreatedNotification, Unit&gt; { }
+/// public class SendWelcomeEmailHandler: IRequestHandler&lt;UserCreatedNotification, Unit&gt; {
+///   public async Task&lt;Result&lt;Unit&gt;&gt; HandleAsync(UserCreatedNotification request, CancellationToken cancellationToken) {
+///     // Send welcome email logic
+///     await emailService.SendWelcomeEmailAsync(request.Email, cancellationToken);
+///     return Result.Success(Unit.Value);
+///   }
+/// }
+/// 
+/// public class CreateUserProfileHandler: IRequestHandler&lt;UserCreatedNotification, Unit&gt; {
+///   public async Task&lt;Result&lt;Unit&gt;&gt; HandleAsync(UserCreatedNotification request, CancellationToken cancellationToken) {
+///     // Create user profile logic
+///     await profileService.CreateProfileAsync(request.UserId, cancellationToken);
+///     return Result.Success(Unit.Value);
+///   }
+/// }
+/// 
+/// public class UpdateAnalyticsHandler: IRequestHandler&lt;UserCreatedNotification, Unit&gt; {
+///   public async Task&lt;Result&lt;Unit&gt;&gt; HandleAsync(UserCreatedNotification request, CancellationToken cancellationToken) {
+///     // Update analytics logic
+///     await analyticsService.TrackUserCreationAsync(request.UserId, request.CreatedAt, cancellationToken);
+///     return Result.Success(Unit.Value);
+///   }
+/// }
+/// 
+/// // Usage in mediator
+/// await mediator.DispatchAsync(new UserCreatedNotification(user.Id, user.Email, DateTime.UtcNow));
 /// </code>
 /// </example>
+/// <seealso cref="IRequest{TResponse}"/>
+/// <seealso cref="IMediator"/>
+/// <seealso cref="Unit"/>
 public interface INotification: IRequest<Unit> { }

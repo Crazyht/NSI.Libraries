@@ -54,8 +54,12 @@ internal static class LogEntryFactory {
     Dictionary<string, object>? variables = null) {
 
     var actualScopeId = scopeId ?? Guid.NewGuid();
-    var scopeVariables = variables ?? new Dictionary<string, object> { { "TestKey", "TestValue" } };
-    var state = scopeVariables.Select(kv => (object)new KeyValuePair<string, object>(kv.Key, kv.Value)).ToArray();
+    var scopeVariables = variables ?? new Dictionary<string, object> {
+      { "TestKey", "TestValue" }
+    };
+    var state = scopeVariables
+      .Select(kv => (object)new KeyValuePair<string, object>(kv.Key, kv.Value))
+      .ToArray();
 
     return new LogEntry(
       EntryType.ScopeStart,

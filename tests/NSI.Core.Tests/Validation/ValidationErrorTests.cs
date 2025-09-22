@@ -47,6 +47,7 @@ public sealed class ValidationErrorTests {
 
     Assert.Contains("errorCode", exception.Message, StringComparison.Ordinal);
   }
+
   [Theory]
   [InlineData("")]
   [InlineData("    ")]

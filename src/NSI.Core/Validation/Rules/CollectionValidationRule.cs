@@ -1,119 +1,112 @@
+using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using Microsoft.Extensions.DependencyInjection;
 using NSI.Core.Validation.Abstractions;
 
 namespace NSI.Core.Validation.Rules;
+
 /// <summary>
-/// Validates each item in a collection property using its registered validator.
+/// Applies nested validation to each non-null element of a collection property.
 /// </summary>
-/// <typeparam name="T">The type of the parent object.</typeparam>
-/// <typeparam name="TItem">The type of items in the collection.</typeparam>
+/// <typeparam name="T">Parent object type.</typeparam>
+/// <typeparam name="TItem">Element type contained in the target collection.</typeparam>
 /// <remarks>
 /// <para>
-/// This validation rule recursively applies validations to each item in a collection
-/// property by resolving the appropriate <see cref="IValidator{TItem}"/> from the
-/// dependency injection container.
+/// Resolves an <see cref="IValidator{TItem}"/> from the ambient DI container and executes it for
+/// each element of the specified collection property. Property names in produced
+/// <see cref="IValidationError"/> instances are prefixed with the collection path and index
+/// (e.g. <c>Addresses[2].Street</c>).
 /// </para>
 /// <para>
-/// The rule will:
+/// Semantics:
 /// <list type="bullet">
-///   <item><description>Locate the property using the provided expression</description></item>
-///   <item><description>Skip validation if the collection is null</description></item>
-///   <item><description>Resolve the appropriate validator for each item type</description></item>
-///   <item><description>Apply validation to each non-null item in the collection</description></item>
-///   <item><description>Prefix property names in validation errors with the collection path</description></item>
+///   <item><description>Skips validation when the collection property is null.</description></item>
+///   <item><description>Silently returns success if no validator for <typeparamref name="TItem"/> is registered.</description></item>
+///   <item><description>Skips (does not fail) null elements inside the collection.</description></item>
+///   <item><description>Yields errors from child validator with prefixed property paths.</description></item>
 /// </list>
 /// </para>
 /// <para>
-/// Example usage:
-/// <code>
-/// // Validate all items in the user's Addresses collection
-/// var addressesRule = new CollectionValidationRule&lt;User, Address&gt;(u => u.Addresses);
-/// var errors = addressesRule.Validate(user, validationContext);
-/// </code>
+/// Guidelines:
+/// <list type="bullet">
+///   <item><description>Keep child validators idempotent; ordering is preserved.</description></item>
+///   <item><description>Avoid heavy service resolution inside the loop; validator is resolved once.</description></item>
+///   <item><description>Prefer small collections for synchronous validation; use async rules for I/O.</description></item>
+/// </list>
+/// </para>
+/// <para>
+/// Thread-safety: Instance is safe for concurrent use provided the resolved validator is thread-safe.
+/// </para>
+/// <para>
+/// Performance: Single pass iteration; no intermediate list allocations. Early exit on null
+/// collection or missing validator.
 /// </para>
 /// </remarks>
+/// <example>
+/// <code>
+/// // Validate each Address element
+/// var rule = new CollectionValidationRule&lt;User, Address&gt;(u => u.Addresses);
+/// foreach (var err in rule.Validate(user, context)) {
+///   Console.WriteLine(err.PropertyName);
+/// }
+/// </code>
+/// </example>
 public sealed class CollectionValidationRule<T, TItem>: IValidationRule<T>
   where TItem : class {
   private readonly Func<T, IEnumerable<TItem>?> _PropertyAccessor;
   private readonly string _PropertyName;
 
   /// <summary>
-  /// Initializes a new instance of the <see cref="CollectionValidationRule{T,TItem}"/> class.
+  /// Initializes the rule for the given collection property expression.
   /// </summary>
-  /// <param name="propertyExpression">Expression to access the collection property.</param>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="propertyExpression"/> is null.
-  /// </exception>
-  /// <exception cref="ArgumentException">
-  /// Thrown when <paramref name="propertyExpression"/> is not a valid member expression.
-  /// </exception>
-  /// <remarks>
-  /// The property expression should be a simple member access expression
-  /// (e.g., <c>x => x.Items</c>) that returns a collection of <typeparamref name="TItem"/>.
-  /// </remarks>
+  /// <param name="propertyExpression">Member access expression selecting a collection.</param>
+  /// <exception cref="ArgumentNullException">Thrown when <paramref name="propertyExpression"/> is null.</exception>
+  /// <exception cref="ArgumentException">Thrown when the expression is not a valid simple member access.</exception>
   public CollectionValidationRule(Expression<Func<T, IEnumerable<TItem>?>> propertyExpression) {
     ArgumentNullException.ThrowIfNull(propertyExpression);
-
     _PropertyAccessor = propertyExpression.Compile();
-    _PropertyName = GetPropertyName(propertyExpression);
+    _PropertyName = GetPropertyName(propertyExpression.Body);
   }
 
   /// <inheritdoc/>
-  /// <remarks>
-  /// <para>
-  /// This method validates each item in the collection property specified in the constructor.
-  /// It resolves the appropriate <see cref="IValidator{TItem}"/> from the dependency
-  /// injection container and applies it to each non-null item.
-  /// </para>
-  /// <para>
-  /// The method will:
-  /// <list type="bullet">
-  ///   <item><description>Return an empty collection if the property value is null</description></item>
-  ///   <item><description>Return an empty collection if no validator is registered for <typeparamref name="TItem"/></description></item>
-  ///   <item><description>Skip null items in the collection</description></item>
-  ///   <item><description>Prefix all property names in errors with the collection property name and index</description></item>
-  /// </list>
-  /// </para>
-  /// </remarks>
-  /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="context"/> is null.
-  /// </exception>
   public IEnumerable<IValidationError> Validate(T instance, IValidationContext context) {
-    ArgumentNullException.ThrowIfNull(context);
     ArgumentNullException.ThrowIfNull(instance);
+    ArgumentNullException.ThrowIfNull(context);
 
     var collection = _PropertyAccessor(instance);
-
     if (collection is null) {
-      yield break;
+      yield break; // Nothing to validate
     }
 
     var validator = context.ServiceProvider?.GetService<IValidator<TItem>>();
-
     if (validator is null) {
-      yield break;
+      yield break; // No validator registered = treated as success
     }
 
     var index = 0;
     foreach (var item in collection) {
-      if (item is null) {
+      if (item is null) { // Skip null element (do not produce error here)
         index++;
         continue;
       }
 
       var result = validator.Validate(item, context);
+      if (result.Errors.Count == 0) {
+        index++;
+        continue; // Fast path
+      }
 
       foreach (var error in result.Errors) {
-        var prefixedPropertyName = string.IsNullOrEmpty(error.PropertyName)
+        var prefixed = string.IsNullOrEmpty(error.PropertyName)
           ? $"{_PropertyName}[{index}]"
           : $"{_PropertyName}[{index}].{error.PropertyName}";
 
         yield return new ValidationError(
           error.ErrorCode,
-          error.ErrorMessage,
-          prefixedPropertyName,
-          error.ExpectedValue
+            error.ErrorMessage,
+            prefixed,
+            error.ExpectedValue
         );
       }
 
@@ -122,8 +115,8 @@ public sealed class CollectionValidationRule<T, TItem>: IValidationRule<T>
   }
 
   private static string GetPropertyName(Expression expression) => expression switch {
-    MemberExpression member => member.Member.Name,
-    LambdaExpression lambda => GetPropertyName(lambda.Body),
-    _ => throw new ArgumentException("Invalid property expression")
+    MemberExpression m => m.Member.Name,
+    UnaryExpression { Operand: MemberExpression m } => m.Member.Name, // In case of conversions
+    _ => throw new ArgumentException("Property expression must be a simple member access", nameof(expression))
   };
 }

@@ -22,7 +22,8 @@ public class PerformanceTests {
   /// Performance test service for generating realistic logging patterns.
   /// </summary>
   private sealed class PerformanceTestService(ILogger<PerformanceTests.PerformanceTestService> logger) {
-    private readonly ILogger<PerformanceTestService> _Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly ILogger<PerformanceTestService> _Logger =
+      logger ?? throw new ArgumentNullException(nameof(logger));
 
     public void ProcessBatch(int batchId, int itemCount) {
       using var batchScope = _Logger.BeginScope(new Dictionary<string, object> {
@@ -31,13 +32,23 @@ public class PerformanceTests {
         { "Operation", "ProcessBatch" }
       });
 
-      _Logger.Log(LogLevel.Information, new EventId(1), "Batch processing started", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(1),
+        "Batch processing started",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       for (var i = 0; i < itemCount; i++) {
         ProcessItem(i);
       }
 
-      _Logger.Log(LogLevel.Information, new EventId(99), "Batch processing completed", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Information,
+        new EventId(99),
+        "Batch processing completed",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     private void ProcessItem(int itemId) {
@@ -46,34 +57,68 @@ public class PerformanceTests {
         { "Step", "ItemProcessing" }
       });
 
-      _Logger.Log(LogLevel.Debug, new EventId(10), "Item processing started", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Debug,
+        new EventId(10),
+        "Item processing started",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       // Simulate processing steps
       ValidateItem(itemId);
       TransformItem(itemId);
       SaveItem();
 
-      _Logger.Log(LogLevel.Debug, new EventId(19), "Item processing completed", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Debug,
+        new EventId(19),
+        "Item processing completed",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     private void ValidateItem(int itemId) {
-      _Logger.Log(LogLevel.Trace, new EventId(11), "Validating item", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Trace,
+        new EventId(11),
+        "Validating item",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       if (itemId % 100 == 0) {
-        _Logger.Log(LogLevel.Warning, new EventId(12), "Item validation warning", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+        _Logger.Log(
+          LogLevel.Warning,
+          new EventId(12),
+          "Item validation warning",
+          null,
+          (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
       }
     }
 
     private void TransformItem(int itemId) {
-      _Logger.Log(LogLevel.Trace, new EventId(13), "Transforming item", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      _Logger.Log(
+        LogLevel.Trace,
+        new EventId(13),
+        "Transforming item",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
       if (itemId % 250 == 0) {
-        _Logger.Log(LogLevel.Error, new EventId(14), "Item transformation error",
-          new InvalidOperationException("Transformation failed"), (s, ex) => $"{s}: {ex?.Message}");
+        _Logger.Log(
+          LogLevel.Error,
+          new EventId(14),
+          "Item transformation error",
+          new InvalidOperationException("Transformation failed"),
+          (s, ex) => $"{s}: {ex?.Message}");
       }
     }
 
-    private void SaveItem() => _Logger.Log(LogLevel.Trace, new EventId(15), "Saving item", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+    private void SaveItem() => _Logger.Log(
+      LogLevel.Trace,
+      new EventId(15),
+      "Saving item",
+      null,
+      (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
   }
 
   [Fact]
@@ -96,13 +141,18 @@ public class PerformanceTests {
     Assert.True(entries.Count > itemCount * 3); // Multiple logs per item
 
     // Performance target: < 2 seconds for 10k entries
-    Assert.True(stopwatch.ElapsedMilliseconds < 2000,
+    Assert.True(
+      stopwatch.ElapsedMilliseconds < 2000,
       $"High-volume logging took {stopwatch.ElapsedMilliseconds}ms, expected < 2000ms");
 
     // Verify data integrity
     var logEntries = entries.LogsOnly().ToList();
-    Assert.Contains(logEntries, e => e.Message?.Contains("Batch processing started", StringComparison.Ordinal) == true);
-    Assert.Contains(logEntries, e => e.Message?.Contains("Batch processing completed", StringComparison.Ordinal) == true);
+    Assert.Contains(
+      logEntries,
+      e => e.Message?.Contains("Batch processing started", StringComparison.Ordinal) == true);
+    Assert.Contains(
+      logEntries,
+      e => e.Message?.Contains("Batch processing completed", StringComparison.Ordinal) == true);
   }
 
   [Fact]
@@ -129,8 +179,12 @@ public class PerformanceTests {
               { "LogId", j }
             });
 
-            logger.Log(LogLevel.Information, new EventId(j),
-              $"Thread {threadId} - Log {j}", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+            logger.Log(
+              LogLevel.Information,
+              new EventId(j),
+              $"Thread {threadId} - Log {j}",
+              null,
+              (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
           }
         } catch (Exception ex) {
           lock (_Lock) {
@@ -153,7 +207,8 @@ public class PerformanceTests {
     Assert.Equal(threadCount * logsPerThread, logEntries.Count);
 
     // Performance target: < 3 seconds for concurrent operations
-    Assert.True(stopwatch.ElapsedMilliseconds < 3000,
+    Assert.True(
+      stopwatch.ElapsedMilliseconds < 3000,
       $"Concurrent logging took {stopwatch.ElapsedMilliseconds}ms, expected < 3000ms");
 
     // Verify data integrity
@@ -203,7 +258,8 @@ public class PerformanceTests {
         .ToList(),
       ["Scope Analysis"] = e => e.ScopeStartsOnly()
         .WithScopeContainingKey("BatchId")
-        .GroupBy(x => x.State.OfType<KeyValuePair<string, object>>()
+        .GroupBy(x => x.State
+          .OfType<KeyValuePair<string, object>>()
           .First(kv => kv.Key == "BatchId").Value)
         .Count(),
       ["Multi-Filter Chain"] = e => e.LogsOnly()
@@ -230,7 +286,8 @@ public class PerformanceTests {
       queryResults[queryName] = stopwatch.Elapsed;
 
       // Performance target: < 500ms per query on large dataset
-      Assert.True(stopwatch.ElapsedMilliseconds < 500,
+      Assert.True(
+        stopwatch.ElapsedMilliseconds < 500,
         $"{queryName} query took {stopwatch.ElapsedMilliseconds}ms, expected < 500ms");
 
       Assert.NotNull(result);
@@ -238,7 +295,8 @@ public class PerformanceTests {
 
     // Verify overall query performance
     var totalQueryTime = queryResults.Values.Sum(ts => ts.TotalMilliseconds);
-    Assert.True(totalQueryTime < 2000,
+    Assert.True(
+      totalQueryTime < 2000,
       $"Total query time {totalQueryTime}ms, expected < 2000ms");
   }
 
@@ -258,7 +316,8 @@ public class PerformanceTests {
     for (var i = 0; i < entryCount; i++) {
       var entry = LogEntryFactory.CreateLogEntry(
         level: LogLevel.Information,
-        message: $"Memory test message {i} with some additional content to simulate realistic message sizes",
+        message:
+          $"Memory test message {i} with some additional content to simulate realistic message sizes",
         eventId: new EventId(i, $"MemoryEvent{i}"));
       store.Add(entry);
     }
@@ -273,11 +332,13 @@ public class PerformanceTests {
     var memoryPerEntry = memoryUsed / entryCount;
 
     // Verify reasonable memory usage
-    Assert.True(memoryPerEntry < 1024, // < 1KB per entry
+    Assert.True(
+      memoryPerEntry < 1024,
       $"Memory usage per entry: {memoryPerEntry} bytes, expected < 1024 bytes");
 
     // Verify total memory usage is reasonable (< 25MB for 25k entries)
-    Assert.True(memoryUsed < 25 * 1024 * 1024,
+    Assert.True(
+      memoryUsed < 25 * 1024 * 1024,
       $"Total memory usage: {memoryUsed / (1024 * 1024)} MB, expected < 25 MB");
 
     // Verify data integrity
@@ -302,12 +363,13 @@ public class PerformanceTests {
 
     // Verify performance
     var entries = store.GetAll();
-    var expectedEntries = nestingDepth * (2 + logsPerLevel); // scope start + logs + scope end per level
+    var expectedEntries = nestingDepth * (2 + logsPerLevel);
 
-    Assert.True(entries.Count >= expectedEntries * 0.9); // Allow some variance
+    Assert.True(entries.Count >= expectedEntries * 0.9);
 
     // Performance target: < 1 second for deep nesting
-    Assert.True(stopwatch.ElapsedMilliseconds < 1000,
+    Assert.True(
+      stopwatch.ElapsedMilliseconds < 1000,
       $"Deep nesting creation took {stopwatch.ElapsedMilliseconds}ms, expected < 1000ms");
 
     // Verify scope hierarchy integrity
@@ -348,8 +410,12 @@ public class PerformanceTests {
               { "ConcurrencyTest", true }
             });
 
-            logger.Log(LogLevel.Information, new EventId(j),
-              $"Thread {threadId} Scope {j}", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+            logger.Log(
+              LogLevel.Information,
+              new EventId(j),
+              $"Thread {threadId} Scope {j}",
+              null,
+              (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
 
             // Add some nesting
             using var nestedScope = logger.BeginScope(new Dictionary<string, object> {
@@ -357,8 +423,12 @@ public class PerformanceTests {
               { "ParentThread", threadId }
             });
 
-            logger.Log(LogLevel.Debug, new EventId(j + 1000),
-              $"Nested log in thread {threadId}", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+            logger.Log(
+              LogLevel.Debug,
+              new EventId(j + 1000),
+              $"Nested log in thread {threadId}",
+              null,
+              (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
           }
         } catch (Exception ex) {
           lock (_Lock) {
@@ -380,12 +450,13 @@ public class PerformanceTests {
     var logs = entries.LogsOnly().ToList();
 
     // Verify expected counts
-    Assert.Equal(threadCount * scopesPerThread * 2, scopeStarts.Count); // 2 scopes per iteration
+    Assert.Equal(threadCount * scopesPerThread * 2, scopeStarts.Count);
     Assert.Equal(threadCount * scopesPerThread * 2, scopeEnds.Count);
-    Assert.Equal(threadCount * scopesPerThread * 2, logs.Count); // 2 logs per iteration
+    Assert.Equal(threadCount * scopesPerThread * 2, logs.Count);
 
     // Performance target: < 2 seconds for concurrent scope operations
-    Assert.True(stopwatch.ElapsedMilliseconds < 2000,
+    Assert.True(
+      stopwatch.ElapsedMilliseconds < 2000,
       $"Concurrent scope operations took {stopwatch.ElapsedMilliseconds}ms, expected < 2000ms");
 
     // Verify scope integrity
@@ -426,21 +497,28 @@ public class PerformanceTests {
       ["Batch Performance Analysis"] = e => e.ScopeStartsOnly()
         .WithScopeContainingKey("BatchId")
         .Select(batch => {
-          var batchId = batch.State.OfType<KeyValuePair<string, object>>()
+          var batchId = batch.State
+            .OfType<KeyValuePair<string, object>>()
             .First(kv => kv.Key == "BatchId").Value;
           var batchLogs = e.WithinScope(batch.ScopeId!.Value).LogsOnly();
           var errorCount = batchLogs.WithLogLevel(LogLevel.Error).Count();
           var warningCount = batchLogs.WithLogLevel(LogLevel.Warning).Count();
-          return new { BatchId = batchId, Errors = errorCount, Warnings = warningCount, Total = batchLogs.Count() };
+          return new {
+            BatchId = batchId,
+            Errors = errorCount,
+            Warnings = warningCount,
+            Total = batchLogs.Count()
+          };
         })
         .ToList(),
 
       ["Item Processing Patterns"] = e => e.ScopeStartsOnly()
         .WithScopeContainingVar("Step", "ItemProcessing")
         .GroupBy(item => {
-          var itemId = (int)item.State.OfType<KeyValuePair<string, object>>()
+          var itemId = (int)item.State
+            .OfType<KeyValuePair<string, object>>()
             .First(kv => kv.Key == "ItemId").Value;
-          return itemId % 100; // Group by item ID pattern
+          return itemId % 100;
         })
         .Select(g => new { Pattern = g.Key, Count = g.Count() })
         .OrderByDescending(x => x.Count)
@@ -457,7 +535,11 @@ public class PerformanceTests {
         .Where(log => !string.IsNullOrEmpty(log.Message))
         .GroupBy(log => log.Message!.Split(' ').FirstOrDefault() ?? "Unknown")
         .Where(g => g.Count() > 10)
-        .Select(g => new { MessageStart = g.Key, Count = g.Count(), Levels = g.Select(x => x.Level).Distinct().Count() })
+        .Select(g => new {
+          MessageStart = g.Key,
+          Count = g.Count(),
+          Levels = g.Select(x => x.Level).Distinct().Count()
+        })
         .OrderByDescending(x => x.Count)
         .ToList()
     };
@@ -473,7 +555,8 @@ public class PerformanceTests {
       analysisResults[queryName] = result;
 
       // Each complex query should complete in reasonable time
-      Assert.True(queryStopwatch.ElapsedMilliseconds < 1000,
+      Assert.True(
+        queryStopwatch.ElapsedMilliseconds < 1000,
         $"Complex query '{queryName}' took {queryStopwatch.ElapsedMilliseconds}ms, expected < 1000ms");
     }
 
@@ -484,7 +567,8 @@ public class PerformanceTests {
     Assert.All(analysisResults.Values, result => Assert.NotNull(result));
 
     // Total analysis time should be reasonable
-    Assert.True(analysisStopwatch.ElapsedMilliseconds < 3000,
+    Assert.True(
+      analysisStopwatch.ElapsedMilliseconds < 3000,
       $"Total analysis took {analysisStopwatch.ElapsedMilliseconds}ms, expected < 3000ms");
   }
 
@@ -502,7 +586,8 @@ public class PerformanceTests {
     var store = new InMemoryLogEntryStore();
     const int durationSeconds = 10;
     const int threadsCount = 20;
-    using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(durationSeconds));
+    using var cancellationTokenSource =
+      new CancellationTokenSource(TimeSpan.FromSeconds(durationSeconds));
     var tasks = new Task[threadsCount];
     var totalOperations = 0;
     var exceptions = new List<Exception>();
@@ -558,7 +643,7 @@ public class PerformanceTests {
     Assert.True(totalOperations > 0);
 
     var entries = store.GetAll();
-    Assert.True(entries.Count > totalOperations * 2); // Each operation generates multiple entries
+    Assert.True(entries.Count > totalOperations * 2);
 
     // Verify system remained stable under stress
     var logEntries = entries.LogsOnly().ToList();
@@ -576,7 +661,8 @@ public class PerformanceTests {
 
     // Performance verification
     var operationsPerSecond = totalOperations / (double)durationSeconds;
-    Assert.True(operationsPerSecond > 10,
+    Assert.True(
+      operationsPerSecond > 10,
       $"Operations per second: {operationsPerSecond:F2}, expected > 10");
   }
 
@@ -601,7 +687,7 @@ public class PerformanceTests {
     // Execute operations that should minimize allocations
     const int operationCount = 1000;
     for (var i = 0; i < operationCount; i++) {
-      service.ProcessBatch(i, 5); // Small batches to control allocation
+      service.ProcessBatch(i, 5);
     }
 
     stopwatch.Stop();
@@ -616,11 +702,14 @@ public class PerformanceTests {
     var gen2Collections = finalGen2Collections - initialGen2Collections;
 
     // Should not trigger excessive garbage collections
-    Assert.True(gen0Collections < operationCount / 10,
+    Assert.True(
+      gen0Collections < operationCount / 10,
       $"Too many Gen0 GCs: {gen0Collections}, expected < {operationCount / 10}");
-    Assert.True(gen1Collections < operationCount / 50,
+    Assert.True(
+      gen1Collections < operationCount / 50,
       $"Too many Gen1 GCs: {gen1Collections}, expected < {operationCount / 50}");
-    Assert.True(gen2Collections < operationCount / 100,
+    Assert.True(
+      gen2Collections < operationCount / 100,
       $"Too many Gen2 GCs: {gen2Collections}, expected < {operationCount / 100}");
 
     // Verify data integrity despite GC pressure
@@ -631,7 +720,12 @@ public class PerformanceTests {
   /// <summary>
   /// Creates nested scopes recursively for performance testing.
   /// </summary>
-  private static void CreateNestedScopes(ILogger logger, int remainingDepth, int logsPerLevel, int currentLevel) {
+  private static void CreateNestedScopes(
+    ILogger logger,
+    int remainingDepth,
+    int logsPerLevel,
+    int currentLevel) {
+
     if (remainingDepth <= 0) {
       return;
     }
@@ -644,8 +738,12 @@ public class PerformanceTests {
 
     // Add logs at this level
     for (var i = 0; i < logsPerLevel; i++) {
-      logger.Log(LogLevel.Information, new EventId((currentLevel * 1000) + i),
-        $"Log {i} at level {currentLevel}", null, (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
+      logger.Log(
+        LogLevel.Information,
+        new EventId((currentLevel * 1000) + i),
+        $"Log {i} at level {currentLevel}",
+        null,
+        (s, _) => s?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
     // Recurse to next level
@@ -696,7 +794,7 @@ public class PerformanceTests {
         ? (double)allLogs.Count(e => e.Level == LogLevel.Error) / allLogs.Count
         : 0.0,
 
-      // OPTIMIZED: Calculate warning rate using pre-filtered collection  
+      // OPTIMIZED: Calculate warning rate using pre-filtered collection
       WarningRate = allLogs.Count > 0
         ? (double)allLogs.Count(e => e.Level == LogLevel.Warning) / allLogs.Count
         : 0.0,
@@ -709,9 +807,10 @@ public class PerformanceTests {
       // OPTIMIZED: Use pre-filtered collection and optimize grouping
       BatchAnalysis = batchScopes
         .Select(batch => new {
-          BatchId = batch.State.OfType<KeyValuePair<string, object>>()
+          BatchId = batch.State
+            .OfType<KeyValuePair<string, object>>()
             .First(kv => kv.Key == "BatchId").Value,
-          ScopeCount = 1 // We already know each scope represents one batch
+          ScopeCount = 1
         })
         .GroupBy(x => x.BatchId)
         .Select(g => new { BatchId = g.Key, ScopeCount = g.Sum(x => x.ScopeCount) })
@@ -731,11 +830,13 @@ public class PerformanceTests {
     analysisStopwatch.Stop();
 
     // Verify comprehensive performance benchmarks
-    Assert.True(benchmarkStopwatch.ElapsedMilliseconds < 5000,
+    Assert.True(
+      benchmarkStopwatch.ElapsedMilliseconds < 5000,
       $"Real-world scenario execution took {benchmarkStopwatch.ElapsedMilliseconds}ms, expected < 5000ms");
 
     // UPDATED: Increase time limit to 1500ms for more realistic expectations
-    Assert.True(analysisStopwatch.ElapsedMilliseconds < 1500,
+    Assert.True(
+      analysisStopwatch.ElapsedMilliseconds < 1500,
       $"Comprehensive analysis took {analysisStopwatch.ElapsedMilliseconds}ms, expected < 1500ms");
 
     // Verify data quality and completeness
@@ -764,7 +865,10 @@ public class PerformanceTests {
       var scopeId = entry.ScopeId!.Value;
 
       int depth;
-      depth = entry.ParentScopeId.HasValue && scopeDepths.TryGetValue(entry.ParentScopeId.Value, out var parentDepth) ? parentDepth + 1 : 1;
+      depth = entry.ParentScopeId.HasValue
+        && scopeDepths.TryGetValue(entry.ParentScopeId.Value, out var parentDepth)
+        ? parentDepth + 1
+        : 1;
 
       scopeDepths[scopeId] = depth;
 

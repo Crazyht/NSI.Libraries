@@ -5,273 +5,160 @@ using NSI.Core.Validation.Abstractions;
 namespace NSI.Core.Results;
 
 /// <summary>
-/// Represents an error with a type, code, message, and optional exception or validation errors.
+/// Represents a categorized error (type, code, message) with optional exception and validation details.
 /// </summary>
-/// <param name="Type">The categorized error type.</param>
-/// <param name="Code">The error code for specific identification.</param>
-/// <param name="Message">The error message describing the failure.</param>
-/// <param name="Exception">The optional exception that caused the error.</param>
-/// <param name="ValidationErrors">The optional list of validation errors for validation failures.</param>
 /// <remarks>
 /// <para>
-/// This record struct provides a comprehensive way to represent errors in the Result pattern.
-/// It includes type categorization, specific codes, human-readable messages, and support
-/// for both exception interoperability and detailed validation error reporting.
+/// Used by the Result pattern to carry structured failure information without relying solely on exceptions.
+/// Each <see cref="ErrorType"/> maps to standardized handling (e.g. HTTP status translation, logging strategy).
 /// </para>
 /// <para>
-/// The class provides static factory methods for creating common error types and
-/// implicit conversion from string for convenience.
+/// Design goals:
+/// <list type="bullet">
+///   <item><description>Structured categorization via <see cref="Type"/></description></item>
+///   <item><description>Stable machine code via <see cref="Code"/> (UPPER_SNAKE_CASE)</description></item>
+///   <item><description>User / developer readable <see cref="Message"/></description></item>
+///   <item><description>Optional root <see cref="Exception"/> (never required)</description></item>
+///   <item><description>Optional field-level <see cref="ValidationErrors"/> list for validation failures</description></item>
+/// </list>
+/// </para>
+/// <para>
+/// Thread-safety: This is an immutable value type. All members are safe for concurrent read access.
 /// </para>
 /// </remarks>
 /// <example>
 /// <code>
-/// // Create typed errors
-/// var notFoundError = ResultError.NotFound("USER_NOT_FOUND", "User with ID 123 was not found");
-/// var authError = ResultError.Unauthorized("INVALID_TOKEN", "JWT token has expired");
-/// 
-/// // Create validation error
-/// var validationErrors = new List&lt;IValidationError&gt; {
-///   new ValidationError("Email", "Email is required", "REQUIRED"),
-///   new ValidationError("Password", "Password must be at least 8 characters", "MIN_LENGTH")
-/// };
-/// var validationError = ResultError.Validation("INVALID_INPUT", "Validation failed", validationErrors);
-/// 
-/// // Implicit conversion from string
-/// ResultError error = "Something went wrong";
+/// var nf = ResultError.NotFound("USER_NOT_FOUND", "User 42 not found");
+/// var validation = ResultError.Validation(
+///   "INVALID_USER", "User validation failed",
+///   new [] { new ValidationError("Email", "REQUIRED", "Email is required") });
+/// ResultError generic = "Unexpected failure"; // implicit from string
 /// </code>
 /// </example>
-public readonly record struct ResultError(
-  ErrorType Type,
-  string Code,
-  string Message,
-  Exception? Exception = null,
-  IReadOnlyList<IValidationError>? ValidationErrors = null) {
-  /// <summary>
-  /// Gets a value indicating whether this error has validation errors.
-  /// </summary>
-  /// <value><c>true</c> if this error contains validation errors; otherwise, <c>false</c>.</value>
-  public bool HasValidationErrors => ValidationErrors?.Count > 0;
+public readonly record struct ResultError {
+  /// <summary>Gets the categorized error type.</summary>
+  public ErrorType Type { get; }
+  /// <summary>Gets the stable machine-readable error code (UPPER_SNAKE_CASE).</summary>
+  public string Code { get; }
+  /// <summary>Gets the human-readable error message.</summary>
+  public string Message { get; }
+  /// <summary>Gets the originating exception when present (optional).</summary>
+  public Exception? Exception { get; }
+  /// <summary>Gets the validation errors when <see cref="Type"/> is Validation.</summary>
+  public IReadOnlyList<IValidationError>? ValidationErrors { get; }
 
-  /// <summary>
-  /// Gets a value indicating whether this error is of a specific type.
-  /// </summary>
-  /// <param name="errorType">The error type to check.</param>
-  /// <returns><c>true</c> if the error is of the specified type; otherwise, <c>false</c>.</returns>
+  /// <summary>Initializes a new error instance (prefer factories for clarity).</summary>
+  /// <param name="type">Categorized error type.</param>
+  /// <param name="code">Stable UPPER_SNAKE_CASE code.</param>
+  /// <param name="message">Human-readable description.</param>
+  /// <param name="exception">Optional root exception.</param>
+  /// <param name="validationErrors">Optional validation errors list.</param>
+  public ResultError(
+    ErrorType type,
+    string code,
+    string message,
+    Exception? exception = null,
+    IReadOnlyList<IValidationError>? validationErrors = null) {
+    ArgumentException.ThrowIfNullOrWhiteSpace(code);
+    ArgumentException.ThrowIfNullOrWhiteSpace(message);
+    Type = type;
+    Code = code;
+    Message = message;
+    Exception = exception;
+    ValidationErrors = validationErrors;
+  }
+
+  /// <summary>Gets a value indicating whether validation errors are attached.</summary>
+  public bool HasValidationErrors => ValidationErrors?.Count > 0;
+  /// <summary>Gets a value indicating whether an exception is attached.</summary>
+  public bool HasException => Exception is not null;
+  /// <summary>Returns true if this error matches the provided type.</summary>
+  /// <param name="errorType">Error type to compare.</param>
   public bool IsOfType(ErrorType errorType) => Type == errorType;
 
-  /// <summary>
-  /// Creates a validation error with a list of validation failures.
-  /// </summary>
-  /// <param name="code">The error code.</param>
-  /// <param name="message">The error message.</param>
-  /// <param name="validationErrors">The list of validation errors.</param>
-  /// <returns>A ResultError of type Validation.</returns>
-  /// <exception cref="ArgumentException">Thrown when code or message is null or empty.</exception>
-  /// <exception cref="ArgumentNullException">Thrown when validationErrors is null.</exception>
-  /// <example>
-  /// <code>
-  /// var errors = new List&lt;IValidationError&gt; {
-  ///   new ValidationError("Email", "Email is required", "REQUIRED")
-  /// };
-  /// var validationError = ResultError.Validation("INVALID_USER", "User validation failed", errors);
-  /// </code>
-  /// </example>
-  public static ResultError Validation(string code, string message, IEnumerable<IValidationError> validationErrors) {
+  /// <summary>Creates a validation error with multiple validation failures.</summary>
+  /// <param name="code">Stable error code.</param>
+  /// <param name="message">Human-readable message.</param>
+  /// <param name="validationErrors">Validation failures.</param>
+  /// <returns>A validation <see cref="ResultError"/> instance.</returns>
+  public static ResultError Validation(
+    string code,
+    string message,
+    IEnumerable<IValidationError> validationErrors) {
     ArgumentException.ThrowIfNullOrWhiteSpace(code);
     ArgumentException.ThrowIfNullOrWhiteSpace(message);
     ArgumentNullException.ThrowIfNull(validationErrors);
-
-    var errorList = validationErrors.ToList().AsReadOnly();
-    return new ResultError(ErrorType.Validation, code, message, ValidationErrors: errorList);
+    var list = validationErrors as IReadOnlyList<IValidationError> ?? [.. validationErrors];
+    return new ResultError(ErrorType.Validation, code, message, validationErrors: list);
   }
 
-  /// <summary>
-  /// Creates a validation error with a single validation failure.
-  /// </summary>
-  /// <param name="code">The error code.</param>
-  /// <param name="message">The error message.</param>
-  /// <param name="validationError">The validation error.</param>
-  /// <returns>A ResultError of type Validation.</returns>
-  /// <exception cref="ArgumentException">Thrown when code or message is null or empty.</exception>
-  /// <exception cref="ArgumentNullException">Thrown when validationError is null.</exception>
-  /// <example>
-  /// <code>
-  /// var error = new ValidationError("Email", "Email is required", "REQUIRED");
-  /// var validationError = ResultError.Validation("INVALID_EMAIL", "Email validation failed", error);
-  /// </code>
-  /// </example>
-  public static ResultError Validation(string code, string message, IValidationError validationError) {
+  /// <summary>Creates a validation error with a single validation failure.</summary>
+  /// <param name="code">Stable error code.</param>
+  /// <param name="message">Human-readable message.</param>
+  /// <param name="validationError">Single validation failure.</param>
+  public static ResultError Validation(
+    string code,
+    string message,
+    IValidationError validationError) {
     ArgumentException.ThrowIfNullOrWhiteSpace(code);
     ArgumentException.ThrowIfNullOrWhiteSpace(message);
     ArgumentNullException.ThrowIfNull(validationError);
-
-    return new ResultError(ErrorType.Validation, code, message,
-      ValidationErrors: new ReadOnlyCollection<IValidationError>([validationError]));
+    return new ResultError(
+      ErrorType.Validation,
+      code,
+      message,
+      validationErrors: new ReadOnlyCollection<IValidationError>([validationError]));
   }
 
-  /// <summary>
-  /// Creates an authentication error.
-  /// </summary>
-  /// <param name="code">The error code.</param>
-  /// <param name="message">The error message.</param>
-  /// <param name="exception">The optional exception.</param>
-  /// <returns>A ResultError of type Authentication.</returns>
-  /// <exception cref="ArgumentException">Thrown when code or message is null or empty.</exception>
-  /// <example>
-  /// <code>
-  /// var authError = ResultError.Unauthorized("INVALID_CREDENTIALS", "Username or password is incorrect");
-  /// </code>
-  /// </example>
-  public static ResultError Unauthorized(string code, string message, Exception? exception = null) {
-    ArgumentException.ThrowIfNullOrWhiteSpace(code);
+  /// <summary>Creates an authentication (401) error.</summary>
+  public static ResultError Unauthorized(string code, string message, Exception? exception = null)
+    => new(ErrorType.Authentication, code, message, exception);
+  /// <summary>Creates an authorization (403) error.</summary>
+  public static ResultError Forbidden(string code, string message, Exception? exception = null)
+    => new(ErrorType.Authorization, code, message, exception);
+  /// <summary>Creates a not found (404) error.</summary>
+  public static ResultError NotFound(string code, string message, Exception? exception = null)
+    => new(ErrorType.NotFound, code, message, exception);
+  /// <summary>Creates a conflict (409) error.</summary>
+  public static ResultError Conflict(string code, string message, Exception? exception = null)
+    => new(ErrorType.Conflict, code, message, exception);
+  /// <summary>Creates a business rule (422) error.</summary>
+  public static ResultError BusinessRule(string code, string message, Exception? exception = null)
+    => new(ErrorType.BusinessRule, code, message, exception);
+
+  /// <summary>Creates a service unavailable (503) error.</summary>
+  public static ResultError ServiceUnavailable(string code, string message, Exception? exception = null)
+    => new(ErrorType.ServiceUnavailable, code, message, exception);
+  /// <summary>Creates a database (500) error.</summary>
+  public static ResultError Database(string code, string message, Exception? exception = null)
+    => new(ErrorType.Database, code, message, exception);
+  /// <summary>Creates a network (502/504) error.</summary>
+  public static ResultError Network(string code, string message, Exception? exception = null)
+    => new(ErrorType.Network, code, message, exception);
+  /// <summary>Creates a timeout (504) error.</summary>
+  public static ResultError Timeout(string code, string message, Exception? exception = null)
+    => new(ErrorType.Timeout, code, message, exception);
+  /// <summary>Creates a rate limit (429) error.</summary>
+  public static ResultError RateLimit(string code, string message, Exception? exception = null)
+    => new(ErrorType.RateLimit, code, message, exception);
+  /// <summary>Creates a generic (500) error.</summary>
+  public static ResultError Generic(string code, string message, Exception? exception = null)
+    => new(ErrorType.Generic, code, message, exception);
+
+  /// <summary>Standardized validation error for a null request body.</summary>
+  public static ResultError BodyNullRequest() => Validation(
+    "NULL_REQUEST",
+    "Request body is required",
+    new ValidationError("Request", "NULL", "Request body cannot be null")
+  );
+
+  /// <summary>Implicit conversion from string to a generic error (code = GENERIC).</summary>
+  /// <param name="message">Error message.</param>
+  public static implicit operator ResultError(string message) {
     ArgumentException.ThrowIfNullOrWhiteSpace(message);
-
-    return new ResultError(ErrorType.Authentication, code, message, exception);
+    return new ResultError(ErrorType.Generic, "GENERIC", message);
   }
 
-  /// <summary>
-  /// Creates an authorization error.
-  /// </summary>
-  /// <param name="code">The error code.</param>
-  /// <param name="message">The error message.</param>
-  /// <param name="exception">The optional exception.</param>
-  /// <returns>A ResultError of type Authorization.</returns>
-  /// <exception cref="ArgumentException">Thrown when code or message is null or empty.</exception>
-  /// <example>
-  /// <code>
-  /// var forbiddenError = ResultError.Forbidden("INSUFFICIENT_PERMISSIONS", "User lacks required permissions");
-  /// </code>
-  /// </example>
-  public static ResultError Forbidden(string code, string message, Exception? exception = null) {
-    ArgumentException.ThrowIfNullOrWhiteSpace(code);
-    ArgumentException.ThrowIfNullOrWhiteSpace(message);
-
-    return new ResultError(ErrorType.Authorization, code, message, exception);
-  }
-
-  /// <summary>
-  /// Creates a not found error.
-  /// </summary>
-  /// <param name="code">The error code.</param>
-  /// <param name="message">The error message.</param>
-  /// <param name="exception">The optional exception.</param>
-  /// <returns>A ResultError of type NotFound.</returns>
-  /// <exception cref="ArgumentException">Thrown when code or message is null or empty.</exception>
-  /// <example>
-  /// <code>
-  /// var notFoundError = ResultError.NotFound("USER_NOT_FOUND", "User with ID 123 was not found");
-  /// </code>
-  /// </example>
-  public static ResultError NotFound(string code, string message, Exception? exception = null) {
-    ArgumentException.ThrowIfNullOrWhiteSpace(code);
-    ArgumentException.ThrowIfNullOrWhiteSpace(message);
-
-    return new ResultError(ErrorType.NotFound, code, message, exception);
-  }
-
-  /// <summary>
-  /// Creates a conflict error.
-  /// </summary>
-  /// <param name="code">The error code.</param>
-  /// <param name="message">The error message.</param>
-  /// <param name="exception">The optional exception.</param>
-  /// <returns>A ResultError of type Conflict.</returns>
-  /// <exception cref="ArgumentException">Thrown when code or message is null or empty.</exception>
-  /// <example>
-  /// <code>
-  /// var conflictError = ResultError.Conflict("DUPLICATE_EMAIL", "Email address is already registered");
-  /// </code>
-  /// </example>
-  public static ResultError Conflict(string code, string message, Exception? exception = null) {
-    ArgumentException.ThrowIfNullOrWhiteSpace(code);
-    ArgumentException.ThrowIfNullOrWhiteSpace(message);
-
-    return new ResultError(ErrorType.Conflict, code, message, exception);
-  }
-
-  /// <summary>
-  /// Creates a service unavailable error.
-  /// </summary>
-  /// <param name="code">The error code.</param>
-  /// <param name="message">The error message.</param>
-  /// <param name="exception">The optional exception.</param>
-  /// <returns>A ResultError of type ServiceUnavailable.</returns>
-  /// <exception cref="ArgumentException">Thrown when code or message is null or empty.</exception>
-  /// <example>
-  /// <code>
-  /// var serviceError = ResultError.ServiceUnavailable("API_DOWN", "External API is currently unavailable");
-  /// </code>
-  /// </example>
-  public static ResultError ServiceUnavailable(string code, string message, Exception? exception = null) {
-    ArgumentException.ThrowIfNullOrWhiteSpace(code);
-    ArgumentException.ThrowIfNullOrWhiteSpace(message);
-
-    return new ResultError(ErrorType.ServiceUnavailable, code, message, exception);
-  }
-
-  /// <summary>
-  /// Creates a business rule violation error.
-  /// </summary>
-  /// <param name="code">The error code.</param>
-  /// <param name="message">The error message.</param>
-  /// <param name="exception">The optional exception.</param>
-  /// <returns>A ResultError of type BusinessRule.</returns>
-  /// <exception cref="ArgumentException">Thrown when code or message is null or empty.</exception>
-  /// <example>
-  /// <code>
-  /// var businessError = ResultError.BusinessRule("INSUFFICIENT_BALANCE", "Account balance is insufficient for this transaction");
-  /// </code>
-  /// </example>
-  public static ResultError BusinessRule(string code, string message, Exception? exception = null) {
-    ArgumentException.ThrowIfNullOrWhiteSpace(code);
-    ArgumentException.ThrowIfNullOrWhiteSpace(message);
-
-    return new ResultError(ErrorType.BusinessRule, code, message, exception);
-  }
-
-  /// <summary>
-  /// Creates a database error.
-  /// </summary>
-  /// <param name="code">The error code.</param>
-  /// <param name="message">The error message.</param>
-  /// <param name="exception">The optional exception.</param>
-  /// <returns>A ResultError of type Database.</returns>
-  /// <exception cref="ArgumentException">Thrown when code or message is null or empty.</exception>
-  /// <example>
-  /// <code>
-  /// var dbError = ResultError.Database("CONNECTION_FAILED", "Unable to connect to database", sqlException);
-  /// </code>
-  /// </example>
-  public static ResultError Database(string code, string message, Exception? exception = null) {
-    ArgumentException.ThrowIfNullOrWhiteSpace(code);
-    ArgumentException.ThrowIfNullOrWhiteSpace(message);
-
-    return new ResultError(ErrorType.Database, code, message, exception);
-  }
-
-  /// <summary>
-  /// Returns a string representation of the error.
-  /// </summary>
-  /// <returns>A formatted string containing the error type, code, and message.</returns>
+  /// <inheritdoc />
   public override string ToString() => $"[{Type}:{Code}] {Message}";
-
-  /// <summary>
-  /// Creates a standardized validation error for a missing request body.
-  /// </summary>
-  /// <returns>
-  /// A <see cref="ResultError"/> representing a null request body validation error.
-  /// </returns>
-  /// <example>
-  /// <code>
-  /// if (request == null) {
-  ///   return ResultError.NullRequest().ToProblemDetails();
-  /// }
-  /// </code>
-  /// </example>
-  public static ResultError BodyNullRequest()
-    => Validation(
-      "NULL_REQUEST",
-      "Request body is required",
-      new ValidationError("Request", "NULL", "Request body cannot be null")
-    );
 }

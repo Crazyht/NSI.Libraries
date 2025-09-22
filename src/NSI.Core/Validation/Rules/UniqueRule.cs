@@ -83,16 +83,14 @@ public sealed class UniqueRule<T, TValue>: IAsyncValidationRule<T> {
 
     // Null => treat as valid (compose with RequiredRule when needed).
     if (value is null) {
-      var empty = Array.Empty<IValidationError>();
-      return empty;
+      return [];
     }
 
     var exists = await _ExistsCheck(context.ServiceProvider, value, cancellationToken)
       .ConfigureAwait(false);
 
     if (!exists) {
-      var empty = Array.Empty<IValidationError>();
-      return empty;
+      return [];
     }
 
     // For NOT_UNIQUE, do not leak original value in ExpectedValue to avoid PII; keep it null

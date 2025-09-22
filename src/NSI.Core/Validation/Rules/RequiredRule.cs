@@ -69,28 +69,28 @@ public sealed class RequiredRule<T>: IValidationRule<T> {
 
     var value = _PropertyAccessor(instance);
 
-    // Fast path success checks
-    if (value is not null) {
-      if (value is string s && string.IsNullOrWhiteSpace(s)) {
-        const string expected = "non-empty value";
-        yield return new ValidationError(
-          "REQUIRED",
-          $"{_PropertyName} is required.",
-          _PropertyName,
-          expected
-        );
-      }
-      yield break;
+    // Null value
+    if (value is null) {
+      const string expectedNull = "non-empty value";
+      yield return new ValidationError(
+        "REQUIRED",
+        $"{_PropertyName} is required.",
+        _PropertyName,
+        expectedNull
+      );
+    }
+    // String specific emptiness check
+    else if (value is string s && string.IsNullOrWhiteSpace(s)) {
+      const string expected = "non-empty value";
+      yield return new ValidationError(
+        "REQUIRED",
+        $"{_PropertyName} is required.",
+        _PropertyName,
+        expected
+      );
     }
 
-    // Null value
-    const string expectedNull = "non-empty value";
-    yield return new ValidationError(
-      "REQUIRED",
-      $"{_PropertyName} is required.",
-      _PropertyName,
-      expectedNull
-    );
+    // Any other non-null value => success (no errors)
   }
 
   private static string GetPropertyName(Expression expression) => expression switch {

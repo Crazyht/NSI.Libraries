@@ -87,11 +87,6 @@ public sealed class UniqueRule<T, TValue>: IAsyncValidationRule<T> {
       return empty;
     }
 
-    // Respect cancellation using a canceled Task to surface TaskCanceledException when awaited
-    if (cancellationToken.IsCancellationRequested) {
-      await Task.FromCanceled<IEnumerable<IValidationError>>(cancellationToken);
-    }
-
     var exists = await _ExistsCheck(context.ServiceProvider, value, cancellationToken)
       .ConfigureAwait(false);
 

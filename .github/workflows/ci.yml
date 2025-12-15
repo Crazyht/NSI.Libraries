@@ -155,7 +155,7 @@ jobs:
           exit $fail
 
       - name: 📊 Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
             name: test-results-${{ matrix.test-group.name }}
@@ -173,7 +173,7 @@ jobs:
           cat ./coverage-report/Summary.txt
 
       - name: 📤 Upload coverage reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-report-${{ matrix.test-group.name }}
           path: ./coverage-report/
@@ -357,7 +357,7 @@ jobs:
             -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
             -p:RepositoryCommit=${{ github.sha }}
       - name: 📤 Upload packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: nuget-packages-${{ steps.version.outputs.version }}
           path: ./packages/*.nupkg
@@ -399,7 +399,7 @@ jobs:
           fi
 
       - name: 📤 Upload benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: benchmark-results-${{ github.run_number }}
           path: benchmarks/NSI.Testing.Benchmarks/benchmark-results.txt
